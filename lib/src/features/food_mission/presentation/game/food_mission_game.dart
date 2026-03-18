@@ -22,7 +22,7 @@ class FoodMissionGame extends FlameGame {
   static const double _gravity = 910;
   static const double _spawnIntervalMin = 0.58;
   static const double _spawnIntervalVariance = 0.34;
-  static const double _foodRadius = 18;
+  static const double _foodRadius = 24;
   static const double _foodRestitution = 0.88;
   static const double _obstacleRestitution = 0.84;
   static const double _wallRestitution = 0.82;
@@ -284,7 +284,7 @@ class FoodMissionGame extends FlameGame {
       () => TextPainter(
         text: TextSpan(
           text: food.foodItem.emoji,
-          style: const TextStyle(fontSize: 34),
+          style: const TextStyle(fontSize: 46),
         ),
         textDirection: TextDirection.ltr,
       )..layout(),
@@ -304,29 +304,29 @@ class FoodMissionGame extends FlameGame {
 
     return [
       _CircleObstacle(
-        center: Offset(boardSize.x * 0.22, boardSize.y * 0.16),
-        radius: 22,
+        center: Offset(boardSize.x * 0.18, boardSize.y * 0.235),
+        radius: 20,
         color: const Color(0xFFF4A261),
       ),
       _SquareObstacle(
         rect: Rect.fromCenter(
-          center: Offset(boardSize.x * 0.50, boardSize.y * 0.12),
-          width: 44,
-          height: 44,
+          center: Offset(boardSize.x * 0.38, boardSize.y * 0.19),
+          width: 40,
+          height: 40,
         ),
         color: const Color(0xFFE76F51),
       ),
       _TriangleObstacle(
         points: [
-          Offset(boardSize.x * 0.74, boardSize.y * 0.10),
-          Offset(boardSize.x * 0.68, boardSize.y * 0.20),
-          Offset(boardSize.x * 0.80, boardSize.y * 0.20),
+          Offset(boardSize.x * 0.58, boardSize.y * 0.15),
+          Offset(boardSize.x * 0.53, boardSize.y * 0.235),
+          Offset(boardSize.x * 0.63, boardSize.y * 0.235),
         ],
         color: const Color(0xFF2A9D8F),
       ),
       _CircleObstacle(
-        center: Offset(boardSize.x * 0.60, boardSize.y * 0.25),
-        radius: 16,
+        center: Offset(boardSize.x * 0.78, boardSize.y * 0.22),
+        radius: 18,
         color: const Color(0xFFE9C46A),
       ),
     ];
@@ -376,6 +376,16 @@ sealed class _BoardObstacle {
     }
     food.angularVelocity += safeNormal.x * 0.4;
   }
+
+  Paint shadowPaint() => Paint()..color = const Color(0x26000000);
+
+  Paint fillPaint(Color color) => Paint()..color = color;
+
+  Paint strokePaint() =>
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..color = const Color(0xCC2A211B);
 }
 
 class _CircleObstacle extends _BoardObstacle {
@@ -391,7 +401,9 @@ class _CircleObstacle extends _BoardObstacle {
 
   @override
   void render(Canvas canvas) {
-    canvas.drawCircle(center, radius, Paint()..color = color);
+    canvas.drawCircle(center.translate(0, 6), radius, shadowPaint());
+    canvas.drawCircle(center, radius, fillPaint(color));
+    canvas.drawCircle(center, radius, strokePaint());
   }
 
   @override
@@ -424,8 +436,19 @@ class _SquareObstacle extends _BoardObstacle {
   @override
   void render(Canvas canvas) {
     canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        rect.shift(const Offset(0, 6)),
+        const Radius.circular(8),
+      ),
+      shadowPaint(),
+    );
+    canvas.drawRRect(
       RRect.fromRectAndRadius(rect, const Radius.circular(8)),
-      Paint()..color = color,
+      fillPaint(color),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(8)),
+      strokePaint(),
     );
   }
 
@@ -489,7 +512,9 @@ class _TriangleObstacle extends _BoardObstacle {
 
   @override
   void render(Canvas canvas) {
-    canvas.drawPath(path, Paint()..color = color);
+    canvas.drawPath(path.shift(const Offset(0, 6)), shadowPaint());
+    canvas.drawPath(path, fillPaint(color));
+    canvas.drawPath(path, strokePaint());
   }
 
   @override
