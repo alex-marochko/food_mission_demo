@@ -230,7 +230,19 @@ class MissionCatalog {
     ),
   ];
 
+  static final Map<String, MissionDefinition> _missionsById = {
+    for (final mission in missions) mission.id: mission,
+  };
+
   static MissionDefinition get initialMission => missions.first;
+
+  static MissionDefinition missionById(String id) {
+    final mission = _missionsById[id];
+    if (mission == null) {
+      throw StateError('Unknown MissionDefinition id: $id');
+    }
+    return mission;
+  }
 
   static List<FoodItem> resolveItems(List<String> itemIds) {
     return itemIds.map((id) => itemsById.getValue(id)).toList(growable: false);

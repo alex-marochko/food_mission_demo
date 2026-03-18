@@ -1,14 +1,15 @@
 import 'package:equatable/equatable.dart';
-import 'package:food_mission_demo/src/features/food_mission/domain/mission_catalog.dart';
-import 'package:food_mission_demo/src/features/food_mission/domain/mission_definition.dart';
+import 'package:food_mission_demo/src/features/food_mission/domain/level_definition.dart';
+import 'package:food_mission_demo/src/features/food_mission/domain/level_planner.dart';
 
-enum MissionSessionStatus { ready, playing, won, lost }
+enum MissionSessionStatus { intro, playing, won, lost }
 
 class MissionSessionState extends Equatable {
   const MissionSessionState({
-    required this.selectedMission,
+    required this.level,
     required this.status,
     required this.score,
+    required this.goalLocked,
     required this.combo,
     required this.bestCombo,
     required this.caughtTargets,
@@ -17,22 +18,24 @@ class MissionSessionState extends Equatable {
   });
 
   factory MissionSessionState.initial() {
-    final mission = MissionCatalog.initialMission;
+    final level = LevelPlanner.levelFor(1);
     return MissionSessionState(
-      selectedMission: mission,
-      status: MissionSessionStatus.ready,
+      level: level,
+      status: MissionSessionStatus.intro,
       score: 0,
+      goalLocked: false,
       combo: 0,
       bestCombo: 0,
       caughtTargets: 0,
       caughtDistractors: 0,
-      remainingSeconds: mission.durationSeconds,
+      remainingSeconds: level.durationSeconds,
     );
   }
 
-  final MissionDefinition selectedMission;
+  final LevelDefinition level;
   final MissionSessionStatus status;
   final int score;
+  final bool goalLocked;
   final int combo;
   final int bestCombo;
   final int caughtTargets;
@@ -40,15 +43,20 @@ class MissionSessionState extends Equatable {
   final int remainingSeconds;
 
   bool get isPlaying => status == MissionSessionStatus.playing;
-  bool get isFinished =>
-      status == MissionSessionStatus.won || status == MissionSessionStatus.lost;
-  bool get achievedGoal => score >= selectedMission.goalScore;
-  double get progressToGoal => (score / selectedMission.goalScore).clamp(0, 1);
+  bool get isIntro => status == MissionSessionStatus.intro;
+  bool get isWon => status == MissionSessionStatus.won;
+  bool get isLost => status == MissionSessionStatus.lost;
+  bool get isFinished => isWon || isLost;
+  bool get achievedGoal => goalLocked || score >= level.goalScore;
+  bool get canAdvance => level.number < LevelPlanner.maxLevel;
+  double get progressToGoal =>
+      goalLocked ? 1 : (score / level.goalScore).clamp(0, 1);
 
   MissionSessionState copyWith({
-    MissionDefinition? selectedMission,
+    LevelDefinition? level,
     MissionSessionStatus? status,
     int? score,
+    bool? goalLocked,
     int? combo,
     int? bestCombo,
     int? caughtTargets,
@@ -56,9 +64,10 @@ class MissionSessionState extends Equatable {
     int? remainingSeconds,
   }) {
     return MissionSessionState(
-      selectedMission: selectedMission ?? this.selectedMission,
+      level: level ?? this.level,
       status: status ?? this.status,
       score: score ?? this.score,
+      goalLocked: goalLocked ?? this.goalLocked,
       combo: combo ?? this.combo,
       bestCombo: bestCombo ?? this.bestCombo,
       caughtTargets: caughtTargets ?? this.caughtTargets,
@@ -67,11 +76,29 @@ class MissionSessionState extends Equatable {
     );
   }
 
+  MissionSessionState resetForLevel(
+    LevelDefinition nextLevel, {
+    required MissionSessionStatus status,
+  }) {
+    return MissionSessionState(
+      level: nextLevel,
+      status: status,
+      score: 0,
+      goalLocked: false,
+      combo: 0,
+      bestCombo: 0,
+      caughtTargets: 0,
+      caughtDistractors: 0,
+      remainingSeconds: nextLevel.durationSeconds,
+    );
+  }
+
   @override
   List<Object?> get props => [
-    selectedMission,
+    level,
     status,
     score,
+    goalLocked,
     combo,
     bestCombo,
     caughtTargets,

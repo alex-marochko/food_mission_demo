@@ -3,9 +3,6 @@ import 'package:food_mission_demo/src/features/food_mission/application/mission_
 import 'package:food_mission_demo/src/features/food_mission/application/mission_session_state.dart';
 import 'package:food_mission_demo/src/features/food_mission/domain/mission_catalog.dart';
 import 'package:food_mission_demo/src/features/food_mission/presentation/game/food_mission_game.dart';
-import 'package:food_mission_demo/src/features/food_mission/presentation/widgets/mission_brief_card.dart';
-import 'package:food_mission_demo/src/features/food_mission/presentation/widgets/mission_selector.dart';
-import 'package:food_mission_demo/src/features/food_mission/presentation/widgets/mission_status_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -38,7 +35,7 @@ class _FoodMissionScreenState extends State<FoodMissionScreen> {
     _game = _createGame();
     final state = context.read<MissionSessionCubit>().state;
     if (state.isPlaying) {
-      _game.startMission(state.selectedMission);
+      _game.startMission(state.level);
     }
     setState(() {});
   }
@@ -56,7 +53,7 @@ class _FoodMissionScreenState extends State<FoodMissionScreen> {
           context.read<MissionSessionCubit>().registerCatch(isTarget: isTarget),
       onCountdown: (seconds) =>
           context.read<MissionSessionCubit>().updateRemainingSeconds(seconds),
-      onFinish: () => context.read<MissionSessionCubit>().finishSession(),
+      onFinish: () => context.read<MissionSessionCubit>().finishLevelFromTimer(),
     );
   }
 
@@ -64,12 +61,11 @@ class _FoodMissionScreenState extends State<FoodMissionScreen> {
   Widget build(BuildContext context) {
     return BlocListener<MissionSessionCubit, MissionSessionState>(
       listenWhen: (previous, current) =>
-          previous.status != current.status ||
-          previous.selectedMission != current.selectedMission,
+          previous.status != current.status || previous.level != current.level,
       listener: (context, state) {
-        if (state.status == MissionSessionStatus.playing) {
-          _game.startMission(state.selectedMission);
-        } else if (!state.isPlaying) {
+        if (state.isPlaying) {
+          _game.startMission(state.level);
+        } else {
           _game.resetMission();
         }
       },
@@ -83,180 +79,38 @@ class _FoodMissionScreenState extends State<FoodMissionScreen> {
             ),
           ),
           child: SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1240),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: BlocBuilder<MissionSessionCubit, MissionSessionState>(
-                    builder: (context, state) {
-                      return LayoutBuilder(
-                        builder: (context, constraints) {
-                          final isWide = constraints.maxWidth >= 980;
-                          final gamePanel = _GamePanel(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Center(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final maxWidth = constraints.maxWidth;
+                    final maxHeight = constraints.maxHeight;
+                    final boardWidth = (maxHeight * FoodMissionGame.boardAspectRatio)
+                        .clamp(0.0, maxWidth);
+                    final boardHeight =
+                        boardWidth / FoodMissionGame.boardAspectRatio;
+
+                    return SizedBox(
+                      width: boardWidth,
+                      height: boardHeight,
+                      child: BlocBuilder<MissionSessionCubit, MissionSessionState>(
+                        builder: (context, state) {
+                          return _GameBoard(
                             game: _game,
                             state: state,
-                            useFlexibleBoard: isWide,
                             focusNode: _gameFocusNode,
                           );
-                          final sidebar = _Sidebar(
-                            state: state,
-                            showMissionBrief: isWide,
-                          );
-
-                          if (isWide) {
-                            return Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(flex: 6, child: gamePanel),
-                                const SizedBox(width: 18),
-                                SizedBox(
-                                  width: 380,
-                                  child: SingleChildScrollView(child: sidebar),
-                                ),
-                              ],
-                            );
-                          }
-
-                          return SingleChildScrollView(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                gamePanel,
-                                const SizedBox(height: 18),
-                                sidebar,
-                              ],
-                            ),
-                          );
                         },
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-class _GamePanel extends StatelessWidget {
-  const _GamePanel({
-    required this.game,
-    required this.state,
-    required this.useFlexibleBoard,
-    required this.focusNode,
-  });
-
-  final FoodMissionGame game;
-  final MissionSessionState state;
-  final bool useFlexibleBoard;
-  final FocusNode focusNode;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    final board = _GameBoard(game: game, state: state, focusNode: focusNode);
-    final aspectBoard = AspectRatio(
-      aspectRatio: FoodMissionGame.boardAspectRatio,
-      child: board,
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Promo Playground', style: theme.textTheme.displaySmall),
-        const SizedBox(height: 10),
-        Text(
-          'Flame-powered демка для gamified e-com місій. '
-          'Лови правильні food emoji, тримай combo і закривай ціль по очках.',
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: const Color(0xFF5B4A3E),
-          ),
-        ),
-        const SizedBox(height: 18),
-        if (!useFlexibleBoard) ...[
-          MissionBriefCard(mission: state.selectedMission),
-          const SizedBox(height: 18),
-        ],
-        if (useFlexibleBoard)
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final maxWidth = constraints.maxWidth;
-                final maxHeight = constraints.maxHeight;
-                final boardWidth = (maxHeight * FoodMissionGame.boardAspectRatio)
-                    .clamp(0.0, maxWidth);
-                final boardHeight = boardWidth / FoodMissionGame.boardAspectRatio;
-
-                return Align(
-                  alignment: Alignment.topCenter,
-                  child: SizedBox(
-                    width: boardWidth,
-                    height: boardHeight,
-                    child: board,
-                  ),
-                );
-              },
-            ),
-          )
-        else
-          aspectBoard,
-      ],
-    );
-  }
-}
-
-class _Sidebar extends StatelessWidget {
-  const _Sidebar({required this.state, required this.showMissionBrief});
-
-  final MissionSessionState state;
-  final bool showMissionBrief;
-
-  @override
-  Widget build(BuildContext context) {
-    final cubit = context.read<MissionSessionCubit>();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (showMissionBrief) ...[
-          MissionBriefCard(mission: state.selectedMission),
-          const SizedBox(height: 18),
-        ],
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Місії', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 14),
-                MissionSelector(
-                  missions: MissionCatalog.missions,
-                  selectedMission: state.selectedMission,
-                  enabled: !state.isPlaying,
-                  onSelected: cubit.selectMission,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 18),
-        MissionStatusPanel(
-          state: state,
-          onPrimaryAction: () {
-            if (state.isPlaying) {
-              cubit.restartSession();
-              return;
-            }
-            cubit.startSession();
-          },
-        ),
-      ],
     );
   }
 }
@@ -274,6 +128,8 @@ class _GameBoard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cubit = context.read<MissionSessionCubit>();
+
     return Focus(
       focusNode: focusNode,
       autofocus: true,
@@ -324,17 +180,10 @@ class _GameBoard extends StatelessWidget {
                 IgnorePointer(
                   child: Padding(
                     padding: EdgeInsets.all(overlayInset),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _BoardTopOverlay(
-                          scale: boardScale,
-                          maxWidth: constraints.maxWidth - (overlayInset * 2),
-                          missionTitle: state.selectedMission.title,
-                          goalScore: state.selectedMission.goalScore,
-                          remainingSeconds: state.remainingSeconds,
-                        ),
-                      ],
+                    child: _BoardHud(
+                      scale: boardScale,
+                      maxWidth: constraints.maxWidth - (overlayInset * 2),
+                      state: state,
                     ),
                   ),
                 ),
@@ -346,7 +195,7 @@ class _GameBoard extends StatelessWidget {
                         return ValueListenableBuilder<double>(
                           valueListenable: game.catchZoneNotifier,
                           builder: (context, normalizedX, child) {
-                            final catcherWidth = 112 * boardScale;
+                            final catcherWidth = 132 * boardScale;
                             final left =
                                 (constraints.maxWidth * normalizedX) -
                                 (catcherWidth / 2);
@@ -372,10 +221,459 @@ class _GameBoard extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (!state.isPlaying)
+                  Positioned.fill(
+                    child: _BoardPopupLayer(
+                      state: state,
+                      scale: boardScale,
+                      onStart: cubit.startCurrentLevel,
+                      onRetry: cubit.retryLevel,
+                      onNext: cubit.openNextLevelIntro,
+                    ),
+                  ),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _BoardHud extends StatelessWidget {
+  const _BoardHud({
+    required this.scale,
+    required this.maxWidth,
+    required this.state,
+  });
+
+  final double scale;
+  final double maxWidth;
+  final MissionSessionState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final pills = [
+      _HudPill(label: 'Рівень', value: '${state.level.number}', scale: scale),
+      _HudPill(
+        label: 'Місія',
+        value: state.level.mission.title,
+        scale: scale,
+      ),
+      _HudPill(label: 'Очки', value: '${state.score}', scale: scale),
+      _HudPill(label: 'Ціль', value: '${state.level.goalScore}', scale: scale),
+      _HudPill(label: 'Час', value: '${state.remainingSeconds}s', scale: scale),
+      _HudPill(label: 'Комбо', value: 'x${state.combo}', scale: scale),
+    ];
+
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Wrap(
+        spacing: 8 * scale,
+        runSpacing: 8 * scale,
+        children: pills,
+      ),
+    );
+  }
+}
+
+class _HudPill extends StatelessWidget {
+  const _HudPill({
+    required this.label,
+    required this.value,
+    required this.scale,
+  });
+
+  final String label;
+  final String value;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final labelStyle = theme.textTheme.labelSmall?.copyWith(
+      color: const Color(0xFF7E6B5C),
+      fontSize: (theme.textTheme.labelSmall?.fontSize ?? 11) * scale * 1.3,
+      height: 1.0,
+    );
+    final valueStyle = theme.textTheme.titleMedium?.copyWith(
+      fontSize: (theme.textTheme.titleMedium?.fontSize ?? 16) * scale * 1.3,
+      height: 1.0,
+    );
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.84),
+        borderRadius: BorderRadius.circular(18 * scale),
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: 12 * scale,
+          vertical: 10 * scale,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label, style: labelStyle),
+            SizedBox(height: 2 * scale),
+            Text(value, style: valueStyle),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BoardPopupLayer extends StatelessWidget {
+  const _BoardPopupLayer({
+    required this.state,
+    required this.scale,
+    required this.onStart,
+    required this.onRetry,
+    required this.onNext,
+  });
+
+  final MissionSessionState state;
+  final double scale;
+  final VoidCallback onStart;
+  final VoidCallback onRetry;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Colors.black.withValues(alpha: 0.18),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 420 * scale.clamp(1.0, 1.4)),
+          child: Padding(
+            padding: EdgeInsets.all(24 * scale),
+            child: switch (state.status) {
+              MissionSessionStatus.intro => _LevelIntroPopup(
+                state: state,
+                scale: scale,
+                onStart: onStart,
+              ),
+              MissionSessionStatus.won => _LevelResultPopup(
+                state: state,
+                scale: scale,
+                onRetry: onRetry,
+                onNext: onNext,
+              ),
+              MissionSessionStatus.lost => _LevelRetryPopup(
+                state: state,
+                scale: scale,
+                onRetry: onRetry,
+              ),
+              MissionSessionStatus.playing => const SizedBox.shrink(),
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LevelIntroPopup extends StatelessWidget {
+  const _LevelIntroPopup({
+    required this.state,
+    required this.scale,
+    required this.onStart,
+  });
+
+  final MissionSessionState state;
+  final double scale;
+  final VoidCallback onStart;
+
+  @override
+  Widget build(BuildContext context) {
+    final previewItems = MissionCatalog.resolveItems(
+      state.level.mission.targetItemIds.take(8).toList(growable: false),
+    );
+    final theme = Theme.of(context);
+
+    return _PopupShell(
+      scale: scale,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Рівень ${state.level.number}',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: const Color(0xFFE8643D),
+            ),
+          ),
+          SizedBox(height: 8 * scale),
+          Text(
+            state.level.mission.title,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontSize: (theme.textTheme.headlineSmall?.fontSize ?? 28) * scale,
+            ),
+          ),
+          SizedBox(height: 10 * scale),
+          Text(
+            state.level.mission.tagline,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: const Color(0xFF5B4A3E),
+            ),
+          ),
+          SizedBox(height: 16 * scale),
+          Text(
+            'Лови лише цільові emoji, тримай серію і закривай мету раніше за таймер.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFF5B4A3E),
+            ),
+          ),
+          SizedBox(height: 18 * scale),
+          Wrap(
+            spacing: 8 * scale,
+            runSpacing: 8 * scale,
+            children: previewItems
+                .map(
+                  (item) => DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF7EFE3),
+                      borderRadius: BorderRadius.circular(18 * scale),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12 * scale,
+                        vertical: 10 * scale,
+                      ),
+                      child: Text(item.emoji, style: TextStyle(fontSize: 28 * scale)),
+                    ),
+                  ),
+                )
+                .toList(growable: false),
+          ),
+          SizedBox(height: 18 * scale),
+          Wrap(
+            spacing: 10 * scale,
+            runSpacing: 10 * scale,
+            children: [
+              _PopupMetric(
+                label: 'Ціль',
+                value: '${state.level.goalScore}',
+                scale: scale,
+              ),
+              _PopupMetric(
+                label: 'Час',
+                value: '${state.level.durationSeconds}s',
+                scale: scale,
+              ),
+              _PopupMetric(
+                label: 'Spawn',
+                value: '${state.level.totalSpawnCount}',
+                scale: scale,
+              ),
+            ],
+          ),
+          SizedBox(height: 22 * scale),
+          FilledButton(
+            onPressed: onStart,
+            child: const Text('Почати рівень'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LevelResultPopup extends StatelessWidget {
+  const _LevelResultPopup({
+    required this.state,
+    required this.scale,
+    required this.onRetry,
+    required this.onNext,
+  });
+
+  final MissionSessionState state;
+  final double scale;
+  final VoidCallback onRetry;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final nextLabel = state.canAdvance ? 'Наступний рівень' : 'На 1 рівень';
+
+    return _PopupShell(
+      scale: scale,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Рівень ${state.level.number} пройдено',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontSize: (theme.textTheme.headlineSmall?.fontSize ?? 28) * scale,
+            ),
+          ),
+          SizedBox(height: 10 * scale),
+          Text(
+            'Мета закрита. Можна або закріпити результат, або рухатися далі.',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: const Color(0xFF5B4A3E),
+            ),
+          ),
+          SizedBox(height: 18 * scale),
+          Wrap(
+            spacing: 10 * scale,
+            runSpacing: 10 * scale,
+            children: [
+              _PopupMetric(label: 'Очки', value: '${state.score}', scale: scale),
+              _PopupMetric(
+                label: 'Комбо',
+                value: 'x${state.bestCombo}',
+                scale: scale,
+              ),
+              _PopupMetric(
+                label: 'Залишок',
+                value: '${state.remainingSeconds}s',
+                scale: scale,
+              ),
+            ],
+          ),
+          SizedBox(height: 22 * scale),
+          Wrap(
+            spacing: 10 * scale,
+            runSpacing: 10 * scale,
+            children: [
+              OutlinedButton(
+                onPressed: onRetry,
+                child: const Text('Пройти знову'),
+              ),
+              FilledButton(
+                onPressed: onNext,
+                child: Text(nextLabel),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LevelRetryPopup extends StatelessWidget {
+  const _LevelRetryPopup({
+    required this.state,
+    required this.scale,
+    required this.onRetry,
+  });
+
+  final MissionSessionState state;
+  final double scale;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return _PopupShell(
+      scale: scale,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('😕', style: TextStyle(fontSize: 44 * scale)),
+          SizedBox(height: 8 * scale),
+          Text(
+            'Рівень ${state.level.number} не закрито',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontSize: (theme.textTheme.headlineSmall?.fontSize ?? 28) * scale,
+            ),
+          ),
+          SizedBox(height: 10 * scale),
+          Text(
+            'Цього разу не вистачило очок. Спробуй ще раз і втримай серію довше.',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: const Color(0xFF5B4A3E),
+            ),
+          ),
+          SizedBox(height: 18 * scale),
+          _PopupMetric(label: 'Очки', value: '${state.score}', scale: scale),
+          SizedBox(height: 22 * scale),
+          FilledButton(
+            onPressed: onRetry,
+            child: const Text('Спробувати ще'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PopupMetric extends StatelessWidget {
+  const _PopupMetric({
+    required this.label,
+    required this.value,
+    required this.scale,
+  });
+
+  final String label;
+  final String value;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7EFE3),
+        borderRadius: BorderRadius.circular(16 * scale),
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: 12 * scale,
+          vertical: 10 * scale,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: const Color(0xFF7E6B5C),
+              ),
+            ),
+            SizedBox(height: 4 * scale),
+            Text(value, style: Theme.of(context).textTheme.titleMedium),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PopupShell extends StatelessWidget {
+  const _PopupShell({
+    required this.scale,
+    required this.child,
+  });
+
+  final double scale;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(28 * scale),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0x29000000),
+            blurRadius: 32 * scale,
+            offset: Offset(0, 20 * scale),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(24 * scale),
+        child: child,
       ),
     );
   }
@@ -420,97 +718,6 @@ class _CatcherOverlay extends StatelessWidget {
           ],
         ),
         child: const Text('🛒'),
-      ),
-    );
-  }
-}
-
-class _BoardTopOverlay extends StatelessWidget {
-  const _BoardTopOverlay({
-    required this.scale,
-    required this.maxWidth,
-    required this.missionTitle,
-    required this.goalScore,
-    required this.remainingSeconds,
-  });
-
-  final double scale;
-  final double maxWidth;
-  final String missionTitle;
-  final int goalScore;
-  final int remainingSeconds;
-
-  @override
-  Widget build(BuildContext context) {
-    final pills = [
-      _OverlayPill(label: 'Місія', value: missionTitle, scale: scale),
-      _OverlayPill(label: 'Ціль', value: '$goalScore', scale: scale),
-      _OverlayPill(label: 'Час', value: '${remainingSeconds}s', scale: scale),
-    ];
-
-    if (maxWidth < 360) {
-      return Wrap(
-        spacing: 8 * scale,
-        runSpacing: 8 * scale,
-        children: pills,
-      );
-    }
-
-    return Row(
-      children: [
-        pills[0],
-        SizedBox(width: 8 * scale),
-        pills[1],
-        const Spacer(),
-        pills[2],
-      ],
-    );
-  }
-}
-
-class _OverlayPill extends StatelessWidget {
-  const _OverlayPill({
-    required this.label,
-    required this.value,
-    required this.scale,
-  });
-
-  final String label;
-  final String value;
-  final double scale;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final labelStyle = theme.textTheme.labelSmall?.copyWith(
-      color: const Color(0xFF7E6B5C),
-      fontSize: (theme.textTheme.labelSmall?.fontSize ?? 11) * scale * 1.3,
-      height: 1.0,
-    );
-    final valueStyle = theme.textTheme.titleMedium?.copyWith(
-      fontSize: (theme.textTheme.titleMedium?.fontSize ?? 16) * scale * 1.3,
-      height: 1.0,
-    );
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(18 * scale),
-      ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: 12 * scale,
-          vertical: 10 * scale,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(label, style: labelStyle),
-            SizedBox(height: 2 * scale),
-            Text(value, style: valueStyle),
-          ],
-        ),
       ),
     );
   }

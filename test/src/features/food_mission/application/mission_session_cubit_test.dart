@@ -1,28 +1,27 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:food_mission_demo/src/features/food_mission/application/mission_session_cubit.dart';
 import 'package:food_mission_demo/src/features/food_mission/application/mission_session_state.dart';
-import 'package:food_mission_demo/src/features/food_mission/domain/mission_catalog.dart';
 
 void main() {
   group('MissionSessionCubit', () {
-    test('starts in ready state with initial mission', () {
+    test('starts in intro state for level one', () {
       final cubit = MissionSessionCubit();
 
-      expect(cubit.state.status, MissionSessionStatus.ready);
-      expect(cubit.state.selectedMission, MissionCatalog.initialMission);
-      expect(
-        cubit.state.remainingSeconds,
-        MissionCatalog.initialMission.durationSeconds,
-      );
+      expect(cubit.state.status, MissionSessionStatus.intro);
+      expect(cubit.state.level.number, 1);
+      expect(cubit.state.level.mission.id, 'goodbye_diet');
+      expect(cubit.state.remainingSeconds, 20);
+      expect(cubit.state.goalLocked, isFalse);
     });
 
-    test('builds combo and score for target catches', () {
-      final cubit = MissionSessionCubit()..startSession();
+    test('starts current level and builds combo score for targets', () {
+      final cubit = MissionSessionCubit()..startCurrentLevel();
 
       cubit.registerCatch(isTarget: true);
       cubit.registerCatch(isTarget: true);
       cubit.registerCatch(isTarget: true);
 
+      expect(cubit.state.status, MissionSessionStatus.playing);
       expect(cubit.state.score, 42);
       expect(cubit.state.combo, 3);
       expect(cubit.state.bestCombo, 3);
@@ -30,25 +29,74 @@ void main() {
     });
 
     test('wrong catch resets combo and cannot push score below zero', () {
-      final cubit = MissionSessionCubit()..startSession();
+      final cubit = MissionSessionCubit()..startCurrentLevel();
 
+      cubit.registerCatch(isTarget: true);
       cubit.registerCatch(isTarget: false);
 
-      expect(cubit.state.score, 0);
+      expect(cubit.state.score, 2);
       expect(cubit.state.combo, 0);
       expect(cubit.state.caughtDistractors, 1);
     });
 
-    test('finishes with won status when goal achieved', () {
-      final cubit = MissionSessionCubit()..startSession();
+    test('locks the goal when enough score is reached, but keeps playing', () {
+      final cubit = MissionSessionCubit()..startCurrentLevel();
 
-      for (var index = 0; index < 8; index++) {
+      while (cubit.state.status == MissionSessionStatus.playing) {
+        cubit.registerCatch(isTarget: true);
+        if (cubit.state.goalLocked) {
+          break;
+        }
+      }
+
+      expect(cubit.state.status, MissionSessionStatus.playing);
+      expect(cubit.state.goalLocked, isTrue);
+      expect(cubit.state.score, greaterThanOrEqualTo(cubit.state.level.goalScore));
+    });
+
+    test('goal lock prevents dropping below goal score', () {
+      final cubit = MissionSessionCubit()..startCurrentLevel();
+
+      while (!cubit.state.goalLocked) {
         cubit.registerCatch(isTarget: true);
       }
 
-      cubit.finishSession();
+      cubit.registerCatch(isTarget: false);
+
+      expect(cubit.state.goalLocked, isTrue);
+      expect(cubit.state.score, cubit.state.level.goalScore);
+    });
+
+    test('opens next level intro after a win', () {
+      final cubit = MissionSessionCubit();
+
+      cubit.openNextLevelIntro();
+
+      expect(cubit.state.status, MissionSessionStatus.intro);
+      expect(cubit.state.level.number, 2);
+      expect(cubit.state.level.mission.id, 'proper_meal');
+      expect(cubit.state.remainingSeconds, 21);
+    });
+
+    test('wins on timer end when goal was previously locked', () {
+      final cubit = MissionSessionCubit()..startCurrentLevel();
+
+      while (!cubit.state.goalLocked) {
+        cubit.registerCatch(isTarget: true);
+      }
+
+      cubit.finishLevelFromTimer();
 
       expect(cubit.state.status, MissionSessionStatus.won);
+      expect(cubit.state.remainingSeconds, 0);
+    });
+
+    test('marks level as lost when timer ends before goal', () {
+      final cubit = MissionSessionCubit()..startCurrentLevel();
+
+      cubit.finishLevelFromTimer();
+
+      expect(cubit.state.status, MissionSessionStatus.lost);
       expect(cubit.state.remainingSeconds, 0);
     });
   });

@@ -1,56 +1,37 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:food_mission_demo/src/features/food_mission/application/mission_session_state.dart';
-import 'package:food_mission_demo/src/features/food_mission/domain/mission_definition.dart';
+import 'package:food_mission_demo/src/features/food_mission/domain/level_planner.dart';
 
 class MissionSessionCubit extends Cubit<MissionSessionState> {
   MissionSessionCubit() : super(MissionSessionState.initial());
 
-  void selectMission(MissionDefinition mission) {
-    if (state.isPlaying || mission == state.selectedMission) {
-      return;
-    }
-
+  void startCurrentLevel() {
     emit(
-      MissionSessionState(
-        selectedMission: mission,
-        status: MissionSessionStatus.ready,
-        score: 0,
-        combo: 0,
-        bestCombo: 0,
-        caughtTargets: 0,
-        caughtDistractors: 0,
-        remainingSeconds: mission.durationSeconds,
-      ),
-    );
-  }
-
-  void startSession() {
-    emit(
-      state.copyWith(
+      state.resetForLevel(
+        state.level,
         status: MissionSessionStatus.playing,
-        score: 0,
-        combo: 0,
-        bestCombo: 0,
-        caughtTargets: 0,
-        caughtDistractors: 0,
-        remainingSeconds: state.selectedMission.durationSeconds,
       ),
     );
   }
 
-  void restartSession() {
+  void retryLevel() {
     emit(
-      state.copyWith(
-        status: MissionSessionStatus.ready,
-        score: 0,
-        combo: 0,
-        bestCombo: 0,
-        caughtTargets: 0,
-        caughtDistractors: 0,
-        remainingSeconds: state.selectedMission.durationSeconds,
+      state.resetForLevel(
+        state.level,
+        status: MissionSessionStatus.playing,
       ),
     );
-    startSession();
+  }
+
+  void openNextLevelIntro() {
+    final nextLevelNumber = state.canAdvance ? state.level.number + 1 : 1;
+    final nextLevel = LevelPlanner.levelFor(nextLevelNumber);
+    emit(
+      state.resetForLevel(
+        nextLevel,
+        status: MissionSessionStatus.intro,
+      ),
+    );
   }
 
   void registerCatch({required bool isTarget}) {
@@ -61,9 +42,11 @@ class MissionSessionCubit extends Cubit<MissionSessionState> {
     if (isTarget) {
       final combo = state.combo + 1;
       final points = 12 + ((combo - 1) * 2).clamp(0, 8);
+      final updatedScore = state.score + points;
       emit(
         state.copyWith(
-          score: state.score + points,
+          score: updatedScore,
+          goalLocked: state.goalLocked || updatedScore >= state.level.goalScore,
           combo: combo,
           bestCombo: combo > state.bestCombo ? combo : state.bestCombo,
           caughtTargets: state.caughtTargets + 1,
@@ -72,9 +55,10 @@ class MissionSessionCubit extends Cubit<MissionSessionState> {
       return;
     }
 
+    final minimumScore = state.goalLocked ? state.level.goalScore : 0;
     emit(
       state.copyWith(
-        score: (state.score - 10).clamp(0, 9999),
+        score: (state.score - 10).clamp(minimumScore, 999999),
         combo: 0,
         caughtDistractors: state.caughtDistractors + 1,
       ),
@@ -88,7 +72,7 @@ class MissionSessionCubit extends Cubit<MissionSessionState> {
     emit(state.copyWith(remainingSeconds: seconds));
   }
 
-  void finishSession() {
+  void finishLevelFromTimer() {
     if (!state.isPlaying) {
       return;
     }
@@ -100,20 +84,6 @@ class MissionSessionCubit extends Cubit<MissionSessionState> {
             : MissionSessionStatus.lost,
         combo: 0,
         remainingSeconds: 0,
-      ),
-    );
-  }
-
-  void resetSession() {
-    emit(
-      state.copyWith(
-        status: MissionSessionStatus.ready,
-        score: 0,
-        combo: 0,
-        bestCombo: 0,
-        caughtTargets: 0,
-        caughtDistractors: 0,
-        remainingSeconds: state.selectedMission.durationSeconds,
       ),
     );
   }

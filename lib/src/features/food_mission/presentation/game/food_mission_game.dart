@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flame/game.dart';
 import 'package:food_mission_demo/src/features/food_mission/domain/food_item.dart';
 import 'package:food_mission_demo/src/features/food_mission/domain/mission_catalog.dart';
-import 'package:food_mission_demo/src/features/food_mission/domain/mission_definition.dart';
+import 'package:food_mission_demo/src/features/food_mission/domain/level_definition.dart';
 import 'package:flutter/material.dart';
 
 typedef CatchCallback = void Function(bool isTarget);
@@ -25,8 +25,6 @@ class FoodMissionGame extends FlameGame {
   static const double baseBoardWidth = 720;
   static const double baseBoardHeight = baseBoardWidth / boardAspectRatio;
   static const double _gravity = 910;
-  static const double _spawnIntervalMin = 0.58;
-  static const double _spawnIntervalVariance = 0.34;
   static const double _foodRadius = 31.2;
   static const double _foodFontSize = 59.8;
   static const double _foodRestitution = 0.88;
@@ -51,12 +49,13 @@ class FoodMissionGame extends FlameGame {
   final Map<String, TextPainter> _emojiPainters = {};
   Vector2 _lastBoardSize = Vector2.zero();
 
-  MissionDefinition? _mission;
+  LevelDefinition? _level;
   List<_BoardObstacle> _obstacles = const [];
   bool _running = false;
   double _catchZoneNormalizedX = 0.5;
-  double _spawnTimer = 0;
   double _remainingTime = 0;
+  double _elapsedTime = 0;
+  int _spawnIndex = 0;
   int _reportedSeconds = 0;
   double _catchFeedbackTimeRemaining = 0;
 
@@ -83,20 +82,23 @@ class FoodMissionGame extends FlameGame {
     _obstacles = _buildObstacles(size);
   }
 
-  void startMission(MissionDefinition mission) {
+  void startMission(LevelDefinition level) {
     resetMission();
-    _mission = mission;
-    _remainingTime = mission.durationSeconds.toDouble();
-    _reportedSeconds = mission.durationSeconds;
-    _spawnTimer = 0.2;
+    _level = level;
+    _remainingTime = level.durationSeconds.toDouble();
+    _reportedSeconds = level.durationSeconds;
+    _elapsedTime = 0;
+    _spawnIndex = 0;
     _onCountdown(_reportedSeconds);
     _running = true;
   }
 
   void resetMission() {
     _running = false;
-    _mission = null;
+    _level = null;
     _foods.clear();
+    _elapsedTime = 0;
+    _spawnIndex = 0;
     _catchFeedbackTimeRemaining = 0;
     catchFeedbackNotifier.value = CatcherFeedback.idle;
   }
@@ -115,10 +117,11 @@ class FoodMissionGame extends FlameGame {
     super.update(dt);
     _updateCatchFeedback(dt);
 
-    if (!_running || _mission == null) {
+    if (!_running || _level == null) {
       return;
     }
 
+    _elapsedTime += dt;
     _remainingTime = max(0, _remainingTime - dt);
     final remainingSeconds = _remainingTime.ceil();
     if (remainingSeconds != _reportedSeconds) {
@@ -126,12 +129,7 @@ class FoodMissionGame extends FlameGame {
       _onCountdown(_reportedSeconds);
     }
 
-    _spawnTimer -= dt;
-    if (_spawnTimer <= 0) {
-      _spawnFood();
-      _spawnTimer =
-          _spawnIntervalMin + (_random.nextDouble() * _spawnIntervalVariance);
-    }
+    _spawnScheduledFood();
 
     _stepPhysics(dt);
     _checkCatchZone();
@@ -187,16 +185,30 @@ class FoodMissionGame extends FlameGame {
     );
   }
 
-  void _spawnFood() {
-    final mission = _mission;
-    if (mission == null || size.x <= 0 || size.y <= 0) {
+  void _spawnScheduledFood() {
+    final level = _level;
+    if (level == null || size.x <= 0 || size.y <= 0) {
       return;
     }
 
-    final isTarget = _random.nextDouble() > 0.34;
-    final source = isTarget ? mission.targetItemIds : mission.distractorItemIds;
-    final item =
-        MissionCatalog.itemsById[source[_random.nextInt(source.length)]]!;
+    while (_spawnIndex < level.spawnTimeline.length &&
+        level.spawnTimeline[_spawnIndex].timeSeconds <= _elapsedTime) {
+      final spawn = level.spawnTimeline[_spawnIndex];
+      _spawnFood(spawn.isTarget);
+      _spawnIndex += 1;
+    }
+  }
+
+  void _spawnFood(bool isTarget) {
+    final level = _level;
+    if (level == null || size.x <= 0 || size.y <= 0) {
+      return;
+    }
+
+    final source = isTarget
+        ? level.mission.targetItemIds
+        : level.mission.distractorItemIds;
+    final item = MissionCatalog.itemsById[source[_random.nextInt(source.length)]]!;
 
     final scale = boardScale;
     final foodRadius = _foodRadius * scale;
