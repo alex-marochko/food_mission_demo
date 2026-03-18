@@ -93,29 +93,19 @@ class _MissionPalette {
 
 _MissionPalette _paletteForMission(MissionMood mood) {
   return switch (mood) {
-    MissionMood.dessert => const _MissionPalette(
-      surface: Color(0xFFFFF0F4),
-      badge: Color(0xFFF25F85),
-      badgeText: Colors.white,
-    ),
     MissionMood.vitamins => const _MissionPalette(
       surface: Color(0xFFF3FBE8),
       badge: Color(0xFF5D9E34),
       badgeText: Colors.white,
     ),
-    MissionMood.roadTrip => const _MissionPalette(
-      surface: Color(0xFFFFF2D8),
-      badge: Color(0xFFE07A15),
+    MissionMood.properMeal => const _MissionPalette(
+      surface: Color(0xFFFFF4DE),
+      badge: Color(0xFFD67B00),
       badgeText: Colors.white,
     ),
-    MissionMood.breakfast => const _MissionPalette(
-      surface: Color(0xFFFFF6DE),
-      badge: Color(0xFFDE8A00),
-      badgeText: Colors.white,
-    ),
-    MissionMood.coffeeBreak => const _MissionPalette(
-      surface: Color(0xFFF7EEE8),
-      badge: Color(0xFF7E4A2E),
+    MissionMood.goodbyeDiet => const _MissionPalette(
+      surface: Color(0xFFFFEEF2),
+      badge: Color(0xFFE14B67),
       badgeText: Colors.white,
     ),
   };

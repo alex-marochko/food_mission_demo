@@ -6,8 +6,9 @@ Flame-powered Flutter demo for a gamified e-com mini-game.
 
 The player drags a bowl horizontally and catches only the emoji that match the active mission:
 
-- `Солодощі`
 - `Вітамінізація`
+- `Поїж нормально`
+- `Бувай, дієта`
 - `Перекус в дорозі`
 - `Сніданок`
 - `Каво-брейк`

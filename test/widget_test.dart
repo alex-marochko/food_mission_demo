@@ -7,8 +7,9 @@ void main() {
     await tester.pump();
 
     expect(find.text('Promo Playground'), findsOneWidget);
-    expect(find.text('Солодощі'), findsWidgets);
-    expect(find.text('Вітамінізація'), findsOneWidget);
+    expect(find.text('Вітамінізація'), findsWidgets);
+    expect(find.text('Поїж нормально'), findsWidgets);
+    expect(find.text('Бувай, дієта'), findsWidgets);
     expect(find.text('Почати місію'), findsOneWidget);
   });
 }

@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-enum MissionMood { dessert, vitamins, roadTrip, breakfast, coffeeBreak }
+enum MissionMood { vitamins, properMeal, goodbyeDiet }
 
 class MissionDefinition extends Equatable {
   const MissionDefinition({
