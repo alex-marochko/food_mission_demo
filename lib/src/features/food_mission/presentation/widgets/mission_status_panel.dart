@@ -25,7 +25,7 @@ class MissionStatusPanel extends StatelessWidget {
             Text('Правила', style: theme.textTheme.titleLarge),
             const SizedBox(height: 12),
             Text(
-              'Перетягуй миску по горизонталі та лови лише цільові emoji. '
+              'Перетягуй кошик по горизонталі та лови лише цільові emoji. '
               'За серію правильних ловів росте combo і множаться очки.',
               style: theme.textTheme.bodyLarge,
             ),

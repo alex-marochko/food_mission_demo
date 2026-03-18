@@ -160,7 +160,10 @@ class _GamePanel extends StatelessWidget {
     final theme = Theme.of(context);
 
     final board = _GameBoard(game: game, state: state, focusNode: focusNode);
-    final aspectBoard = AspectRatio(aspectRatio: 0.72, child: board);
+    final aspectBoard = AspectRatio(
+      aspectRatio: FoodMissionGame.boardAspectRatio,
+      child: board,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -185,8 +188,9 @@ class _GamePanel extends StatelessWidget {
               builder: (context, constraints) {
                 final maxWidth = constraints.maxWidth;
                 final maxHeight = constraints.maxHeight;
-                final boardWidth = (maxHeight * 0.72).clamp(0.0, maxWidth);
-                final boardHeight = boardWidth / 0.72;
+                final boardWidth = (maxHeight * FoodMissionGame.boardAspectRatio)
+                    .clamp(0.0, maxWidth);
+                final boardHeight = boardWidth / FoodMissionGame.boardAspectRatio;
 
                 return Align(
                   alignment: Alignment.topCenter,
@@ -290,16 +294,21 @@ class _GameBoard extends StatelessWidget {
         }
         return KeyEventResult.ignored;
       },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(36),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            void syncPointer(double dx) {
-              focusNode.requestFocus();
-              game.moveCatchZone(dx / constraints.maxWidth);
-            }
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final boardScale = FoodMissionGame.scaleForBoardWidth(
+            constraints.maxWidth,
+          );
+          final overlayInset = (18 * boardScale).clamp(10.0, 18.0);
 
-            return Stack(
+          void syncPointer(double dx) {
+            focusNode.requestFocus();
+            game.moveCatchZone(dx / constraints.maxWidth);
+          }
+
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(36 * boardScale),
+            child: Stack(
               fit: StackFit.expand,
               children: [
                 Listener(
@@ -314,27 +323,15 @@ class _GameBoard extends StatelessWidget {
                 ),
                 IgnorePointer(
                   child: Padding(
-                    padding: const EdgeInsets.all(18),
+                    padding: EdgeInsets.all(overlayInset),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            _OverlayPill(
-                              label: 'Місія',
-                              value: state.selectedMission.title,
-                            ),
-                            const SizedBox(width: 8),
-                            _OverlayPill(
-                              label: 'Ціль',
-                              value: '${state.selectedMission.goalScore}',
-                            ),
-                            const Spacer(),
-                            _OverlayPill(
-                              label: 'Час',
-                              value: '${state.remainingSeconds}s',
-                            ),
-                          ],
+                        _BoardTopOverlay(
+                          maxWidth: constraints.maxWidth - (overlayInset * 2),
+                          missionTitle: state.selectedMission.title,
+                          goalScore: state.selectedMission.goalScore,
+                          remainingSeconds: state.remainingSeconds,
                         ),
                         const Spacer(),
                         AnimatedSwitcher(
@@ -352,7 +349,7 @@ class _GameBoard extends StatelessWidget {
                     child: ValueListenableBuilder<double>(
                       valueListenable: game.catchZoneNotifier,
                       builder: (context, normalizedX, child) {
-                        const catcherWidth = 112.0;
+                        final catcherWidth = 112 * boardScale;
                         final left =
                             (constraints.maxWidth * normalizedX) -
                             (catcherWidth / 2);
@@ -363,27 +360,29 @@ class _GameBoard extends StatelessWidget {
                                 0.0,
                                 constraints.maxWidth - catcherWidth,
                               ),
-                              bottom: 18,
+                              bottom: 18 * boardScale,
                               child: child!,
                             ),
                           ],
                         );
                       },
-                      child: const _CatcherOverlay(),
+                      child: _CatcherOverlay(scale: boardScale),
                     ),
                   ),
                 ),
               ],
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 }
 
 class _CatcherOverlay extends StatelessWidget {
-  const _CatcherOverlay();
+  const _CatcherOverlay({required this.scale});
+
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
@@ -392,25 +391,65 @@ class _CatcherOverlay extends StatelessWidget {
         gradient: const LinearGradient(
           colors: [Color(0xFFFFCE4A), Color(0xFFFF8B3D)],
         ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFF191613), width: 3),
-        boxShadow: const [
+        borderRadius: BorderRadius.circular(24 * scale),
+        border: Border.all(color: const Color(0xFF191613), width: 3 * scale),
+        boxShadow: [
           BoxShadow(
             color: Color(0x29000000),
-            offset: Offset(0, 12),
-            blurRadius: 16,
+            offset: Offset(0, 12 * scale),
+            blurRadius: 16 * scale,
           ),
         ],
       ),
-      child: const SizedBox(
-        width: 112,
+      child: SizedBox(
+        width: 112 * scale,
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: EdgeInsets.symmetric(
+            horizontal: 16 * scale,
+            vertical: 12 * scale,
+          ),
           child: Center(
-            child: Text('🛒', style: TextStyle(fontSize: 46)),
+            child: Text('🛒', style: TextStyle(fontSize: 46 * scale)),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _BoardTopOverlay extends StatelessWidget {
+  const _BoardTopOverlay({
+    required this.maxWidth,
+    required this.missionTitle,
+    required this.goalScore,
+    required this.remainingSeconds,
+  });
+
+  final double maxWidth;
+  final String missionTitle;
+  final int goalScore;
+  final int remainingSeconds;
+
+  @override
+  Widget build(BuildContext context) {
+    final pills = [
+      _OverlayPill(label: 'Місія', value: missionTitle),
+      _OverlayPill(label: 'Ціль', value: '$goalScore'),
+      _OverlayPill(label: 'Час', value: '${remainingSeconds}s'),
+    ];
+
+    if (maxWidth < 360) {
+      return Wrap(spacing: 8, runSpacing: 8, children: pills);
+    }
+
+    return Row(
+      children: [
+        pills[0],
+        const SizedBox(width: 8),
+        pills[1],
+        const Spacer(),
+        pills[2],
+      ],
     );
   }
 }
@@ -457,7 +496,7 @@ class _ReadyBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = switch (state.status) {
-      MissionSessionStatus.ready => 'Перетягни миску та запускай місію',
+      MissionSessionStatus.ready => 'Перетягни кошик та запускай місію',
       MissionSessionStatus.won =>
         'Ціль виконано. Можна показувати reward reveal',
       MissionSessionStatus.lost => 'Ще одна спроба і можна докрутити баланс',

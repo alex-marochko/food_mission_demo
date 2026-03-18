@@ -19,15 +19,23 @@ class FoodMissionGame extends FlameGame {
        _onCountdown = onCountdown,
        _onFinish = onFinish;
 
+  static const double boardAspectRatio = 0.72;
+  static const double baseBoardWidth = 720;
+  static const double baseBoardHeight = baseBoardWidth / boardAspectRatio;
   static const double _gravity = 910;
   static const double _spawnIntervalMin = 0.58;
   static const double _spawnIntervalVariance = 0.34;
   static const double _foodRadius = 24;
+  static const double _foodFontSize = 46;
   static const double _foodRestitution = 0.88;
   static const double _obstacleRestitution = 0.84;
   static const double _wallRestitution = 0.82;
   static const double _foodLinearDamping = 0.015;
   static const double _foodAngularDamping = 0.28;
+  static const double _catchHitboxWidth = 164;
+  static const double _catchHitboxHeight = 88;
+  static const double _catchVisualWidth = 112;
+  static const double _catchBottomPadding = 18;
 
   final CatchCallback _onCatch;
   final CountdownCallback _onCountdown;
@@ -37,6 +45,7 @@ class FoodMissionGame extends FlameGame {
 
   final List<_FoodBody> _foods = [];
   final Map<String, TextPainter> _emojiPainters = {};
+  Vector2 _lastBoardSize = Vector2.zero();
 
   MissionDefinition? _mission;
   List<_BoardObstacle> _obstacles = const [];
@@ -49,9 +58,23 @@ class FoodMissionGame extends FlameGame {
   @override
   Color backgroundColor() => Colors.transparent;
 
+  static double scaleForBoardWidth(double boardWidth) => boardWidth / baseBoardWidth;
+
+  double get boardScale => scaleForBoardWidth(size.x <= 0 ? baseBoardWidth : size.x);
+
+  double get catcherVisualWidth => _catchVisualWidth * boardScale;
+
+  double get catcherBottomPadding => _catchBottomPadding * boardScale;
+
+  double get boardCornerRadius => 36 * boardScale;
+
   @override
   void onGameResize(Vector2 size) {
+    final previousSize = _lastBoardSize.clone();
     super.onGameResize(size);
+    _rescaleScene(previousSize, size);
+    _lastBoardSize = size.clone();
+    _emojiPainters.clear();
     _obstacles = _buildObstacles(size);
   }
 
@@ -144,9 +167,9 @@ class FoodMissionGame extends FlameGame {
   }
 
   Rect get catchZoneRect {
-    const catchWidth = 164.0;
-    const catchHeight = 88.0;
-    const bottomPadding = 18.0;
+    final catchWidth = _catchHitboxWidth * boardScale;
+    final catchHeight = _catchHitboxHeight * boardScale;
+    final bottomPadding = catcherBottomPadding;
     final left = (size.x * _catchZoneNormalizedX) - (catchWidth / 2);
     return Rect.fromLTWH(
       left.clamp(0, max(0, size.x - catchWidth)),
@@ -167,21 +190,23 @@ class FoodMissionGame extends FlameGame {
     final item =
         MissionCatalog.itemsById[source[_random.nextInt(source.length)]]!;
 
+    final scale = boardScale;
+    final foodRadius = _foodRadius * scale;
+    final spawnInset = (foodRadius + (24 * scale));
     final spawnX =
-        (_foodRadius + 24) +
-        _random.nextDouble() * max(60, size.x - ((_foodRadius + 24) * 2));
+        spawnInset + _random.nextDouble() * max(60 * scale, size.x - (spawnInset * 2));
     final initialVelocity = Vector2(
-      (_random.nextDouble() - 0.5) * 210,
-      20 + (_random.nextDouble() * 90),
+      (_random.nextDouble() - 0.5) * (210 * scale),
+      (20 * scale) + (_random.nextDouble() * (90 * scale)),
     );
 
     _foods.add(
       _FoodBody(
         foodItem: item,
         isTarget: isTarget,
-        position: Vector2(spawnX, -_foodRadius - (_random.nextDouble() * 24)),
+        position: Vector2(spawnX, -foodRadius - (_random.nextDouble() * (24 * scale))),
         velocity: initialVelocity,
-        radius: _foodRadius,
+        radius: foodRadius,
         angle: (_random.nextDouble() - 0.5) * 0.25,
         angularVelocity: (_random.nextDouble() - 0.5) * 4.2,
       ),
@@ -189,8 +214,9 @@ class FoodMissionGame extends FlameGame {
   }
 
   void _stepPhysics(double dt) {
+    final scaledGravity = _gravity * boardScale;
     for (final food in _foods) {
-      food.velocity.y += _gravity * dt;
+      food.velocity.y += scaledGravity * dt;
       food.velocity.x *= 1 - (_foodLinearDamping * dt * 60);
       food.angularVelocity *= 1 - (_foodAngularDamping * dt);
       food.position += food.velocity * dt;
@@ -275,16 +301,19 @@ class FoodMissionGame extends FlameGame {
   }
 
   void _removeMissedFood() {
-    _foods.removeWhere((food) => food.position.y - food.radius > size.y + 64);
+    _foods.removeWhere(
+      (food) => food.position.y - food.radius > size.y + (64 * boardScale),
+    );
   }
 
   void _renderFood(Canvas canvas, _FoodBody food) {
+    final fontSize = _foodFontSize * boardScale;
     final painter = _emojiPainters.putIfAbsent(
       food.foodItem.emoji,
       () => TextPainter(
         text: TextSpan(
           text: food.foodItem.emoji,
-          style: const TextStyle(fontSize: 46),
+          style: TextStyle(fontSize: fontSize),
         ),
         textDirection: TextDirection.ltr,
       )..layout(),
@@ -302,21 +331,26 @@ class FoodMissionGame extends FlameGame {
       return const [];
     }
 
+    final scale = scaleForBoardWidth(boardSize.x);
+
     return [
       _CircleObstacle(
+        renderScale: scale,
         center: Offset(boardSize.x * 0.18, boardSize.y * 0.235),
-        radius: 20,
+        radius: 20 * scale,
         color: const Color(0xFFF4A261),
       ),
       _SquareObstacle(
+        renderScale: scale,
         rect: Rect.fromCenter(
           center: Offset(boardSize.x * 0.38, boardSize.y * 0.19),
-          width: 40,
-          height: 40,
+          width: 40 * scale,
+          height: 40 * scale,
         ),
         color: const Color(0xFFE76F51),
       ),
       _TriangleObstacle(
+        renderScale: scale,
         points: [
           Offset(boardSize.x * 0.58, boardSize.y * 0.15),
           Offset(boardSize.x * 0.53, boardSize.y * 0.235),
@@ -325,11 +359,25 @@ class FoodMissionGame extends FlameGame {
         color: const Color(0xFF2A9D8F),
       ),
       _CircleObstacle(
+        renderScale: scale,
         center: Offset(boardSize.x * 0.78, boardSize.y * 0.22),
-        radius: 18,
+        radius: 18 * scale,
         color: const Color(0xFFE9C46A),
       ),
     ];
+  }
+
+  void _rescaleScene(Vector2 previousSize, Vector2 newSize) {
+    if (previousSize.x <= 0 || previousSize.y <= 0 || _foods.isEmpty) {
+      return;
+    }
+
+    final scale = min(newSize.x / previousSize.x, newSize.y / previousSize.y);
+    for (final food in _foods) {
+      food.position = Vector2(food.position.x * scale, food.position.y * scale);
+      food.velocity = Vector2(food.velocity.x * scale, food.velocity.y * scale);
+      food.radius *= scale;
+    }
   }
 }
 
@@ -348,13 +396,15 @@ class _FoodBody {
   final bool isTarget;
   Vector2 position;
   Vector2 velocity;
-  final double radius;
+  double radius;
   double angle;
   double angularVelocity;
 }
 
 sealed class _BoardObstacle {
-  const _BoardObstacle();
+  const _BoardObstacle({required this.renderScale});
+
+  final double renderScale;
 
   void render(Canvas canvas);
 
@@ -384,12 +434,13 @@ sealed class _BoardObstacle {
   Paint strokePaint() =>
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5
+        ..strokeWidth = 2.5 * renderScale
         ..color = const Color(0xCC2A211B);
 }
 
 class _CircleObstacle extends _BoardObstacle {
   const _CircleObstacle({
+    required super.renderScale,
     required this.center,
     required this.radius,
     required this.color,
@@ -401,7 +452,7 @@ class _CircleObstacle extends _BoardObstacle {
 
   @override
   void render(Canvas canvas) {
-    canvas.drawCircle(center.translate(0, 6), radius, shadowPaint());
+    canvas.drawCircle(center.translate(0, 6 * renderScale), radius, shadowPaint());
     canvas.drawCircle(center, radius, fillPaint(color));
     canvas.drawCircle(center, radius, strokePaint());
   }
@@ -428,7 +479,11 @@ class _CircleObstacle extends _BoardObstacle {
 }
 
 class _SquareObstacle extends _BoardObstacle {
-  const _SquareObstacle({required this.rect, required this.color});
+  const _SquareObstacle({
+    required super.renderScale,
+    required this.rect,
+    required this.color,
+  });
 
   final Rect rect;
   final Color color;
@@ -437,17 +492,17 @@ class _SquareObstacle extends _BoardObstacle {
   void render(Canvas canvas) {
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        rect.shift(const Offset(0, 6)),
-        const Radius.circular(8),
+        rect.shift(Offset(0, 6 * renderScale)),
+        Radius.circular(8 * renderScale),
       ),
       shadowPaint(),
     );
     canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, const Radius.circular(8)),
+      RRect.fromRectAndRadius(rect, Radius.circular(8 * renderScale)),
       fillPaint(color),
     );
     canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, const Radius.circular(8)),
+      RRect.fromRectAndRadius(rect, Radius.circular(8 * renderScale)),
       strokePaint(),
     );
   }
@@ -501,7 +556,11 @@ class _SquareObstacle extends _BoardObstacle {
 }
 
 class _TriangleObstacle extends _BoardObstacle {
-  _TriangleObstacle({required List<Offset> points, required this.color})
+  _TriangleObstacle({
+    required super.renderScale,
+    required List<Offset> points,
+    required this.color,
+  })
     : assert(points.length == 3),
       points = List.unmodifiable(points),
       path = Path()..addPolygon(points, true);
@@ -512,7 +571,7 @@ class _TriangleObstacle extends _BoardObstacle {
 
   @override
   void render(Canvas canvas) {
-    canvas.drawPath(path.shift(const Offset(0, 6)), shadowPaint());
+    canvas.drawPath(path.shift(Offset(0, 6 * renderScale)), shadowPaint());
     canvas.drawPath(path, fillPaint(color));
     canvas.drawPath(path, strokePaint());
   }
