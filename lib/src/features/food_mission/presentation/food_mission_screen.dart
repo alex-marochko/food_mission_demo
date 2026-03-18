@@ -389,49 +389,37 @@ class _CatcherOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gradient = switch (feedback) {
-      CatcherFeedback.success => const [Color(0xFF68D97F), Color(0xFF2FB863)],
-      CatcherFeedback.error => const [Color(0xFFFF8A80), Color(0xFFE24D43)],
-      CatcherFeedback.idle => const [Color(0xFFFFCE4A), Color(0xFFFF8B3D)],
+    final iconColor = switch (feedback) {
+      CatcherFeedback.success => const Color(0xFF16C451),
+      CatcherFeedback.error => const Color(0xFFFF3B30),
+      CatcherFeedback.idle => const Color(0xFF191613),
     };
-    final glowColor = switch (feedback) {
-      CatcherFeedback.success => const Color(0x663CCB69),
-      CatcherFeedback.error => const Color(0x66E24D43),
-      CatcherFeedback.idle => const Color(0x29000000),
+    final shadowColor = switch (feedback) {
+      CatcherFeedback.success => const Color(0xAA16C451),
+      CatcherFeedback.error => const Color(0xAAFF3B30),
+      CatcherFeedback.idle => const Color(0x3D000000),
     };
-    final pulseScale = feedback == CatcherFeedback.idle ? 1.0 : 1.08;
+    final pulseScale = feedback == CatcherFeedback.idle ? 1.0 : 1.14;
 
     return AnimatedScale(
       scale: pulseScale,
       duration: const Duration(milliseconds: 140),
       curve: Curves.easeOutBack,
-      child: AnimatedContainer(
+      child: AnimatedDefaultTextStyle(
         duration: const Duration(milliseconds: 140),
         curve: Curves.easeOut,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: gradient),
-          borderRadius: BorderRadius.circular(24 * scale),
-          border: Border.all(color: const Color(0xFF191613), width: 3 * scale),
-          boxShadow: [
-            BoxShadow(
-              color: glowColor,
-              offset: Offset(0, 12 * scale),
-              blurRadius: 18 * scale,
+        style: TextStyle(
+          fontSize: 116 * scale,
+          color: iconColor,
+          shadows: [
+            Shadow(
+              color: shadowColor,
+              offset: Offset(0, 10 * scale),
+              blurRadius: 24 * scale,
             ),
           ],
         ),
-        child: SizedBox(
-          width: 112 * scale,
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: 16 * scale,
-              vertical: 12 * scale,
-            ),
-            child: Center(
-              child: Text('🛒', style: TextStyle(fontSize: 46 * scale)),
-            ),
-          ),
-        ),
+        child: const Text('🛒'),
       ),
     );
   }

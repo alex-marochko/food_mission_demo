@@ -27,8 +27,8 @@ class FoodMissionGame extends FlameGame {
   static const double _gravity = 910;
   static const double _spawnIntervalMin = 0.58;
   static const double _spawnIntervalVariance = 0.34;
-  static const double _foodRadius = 24;
-  static const double _foodFontSize = 46;
+  static const double _foodRadius = 31.2;
+  static const double _foodFontSize = 59.8;
   static const double _foodRestitution = 0.88;
   static const double _obstacleRestitution = 0.84;
   static const double _wallRestitution = 0.82;
@@ -345,14 +345,14 @@ class FoodMissionGame extends FlameGame {
     return [
       _CircleObstacle(
         renderScale: scale,
-        center: Offset(boardSize.x * 0.18, boardSize.y * 0.235),
+        center: Offset(boardSize.x * 0.18, boardSize.y * 0.335),
         radius: 20 * scale,
         color: const Color(0xFFF4A261),
       ),
       _SquareObstacle(
         renderScale: scale,
         rect: Rect.fromCenter(
-          center: Offset(boardSize.x * 0.38, boardSize.y * 0.19),
+          center: Offset(boardSize.x * 0.38, boardSize.y * 0.29),
           width: 40 * scale,
           height: 40 * scale,
         ),
@@ -361,15 +361,15 @@ class FoodMissionGame extends FlameGame {
       _TriangleObstacle(
         renderScale: scale,
         points: [
-          Offset(boardSize.x * 0.58, boardSize.y * 0.15),
-          Offset(boardSize.x * 0.53, boardSize.y * 0.235),
-          Offset(boardSize.x * 0.63, boardSize.y * 0.235),
+          Offset(boardSize.x * 0.58, boardSize.y * 0.25),
+          Offset(boardSize.x * 0.53, boardSize.y * 0.335),
+          Offset(boardSize.x * 0.63, boardSize.y * 0.335),
         ],
         color: const Color(0xFF2A9D8F),
       ),
       _CircleObstacle(
         renderScale: scale,
-        center: Offset(boardSize.x * 0.78, boardSize.y * 0.22),
+        center: Offset(boardSize.x * 0.78, boardSize.y * 0.32),
         radius: 18 * scale,
         color: const Color(0xFFE9C46A),
       ),
