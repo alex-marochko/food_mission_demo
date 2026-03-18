@@ -352,7 +352,7 @@ class _GameBoard extends StatelessWidget {
                     child: ValueListenableBuilder<double>(
                       valueListenable: game.catchZoneNotifier,
                       builder: (context, normalizedX, child) {
-                        const catcherWidth = 164.0;
+                        const catcherWidth = 112.0;
                         final left =
                             (constraints.maxWidth * normalizedX) -
                             (catcherWidth / 2);
@@ -392,7 +392,7 @@ class _CatcherOverlay extends StatelessWidget {
         gradient: const LinearGradient(
           colors: [Color(0xFFFFCE4A), Color(0xFFFF8B3D)],
         ),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFF191613), width: 3),
         boxShadow: const [
           BoxShadow(
@@ -402,36 +402,13 @@ class _CatcherOverlay extends StatelessWidget {
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('🥣', style: TextStyle(fontSize: 34)),
-            const SizedBox(width: 10),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  'Ловець',
-                  style: TextStyle(
-                    color: Color(0xFF191613),
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Text(
-                  'мишка / A D / ← →',
-                  style: TextStyle(
-                    color: Color(0xFF5B4A3E),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ],
+      child: const SizedBox(
+        width: 112,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Center(
+            child: Text('🛒', style: TextStyle(fontSize: 46)),
+          ),
         ),
       ),
     );
