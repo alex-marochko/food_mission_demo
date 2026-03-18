@@ -1,6 +1,5 @@
 import 'dart:math';
 
-import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:food_mission_demo/src/features/food_mission/domain/food_item.dart';
 import 'package:food_mission_demo/src/features/food_mission/domain/mission_catalog.dart';
@@ -20,14 +19,27 @@ class FoodMissionGame extends FlameGame {
        _onCountdown = onCountdown,
        _onFinish = onFinish;
 
+  static const double _gravity = 910;
+  static const double _spawnIntervalMin = 0.58;
+  static const double _spawnIntervalVariance = 0.34;
+  static const double _foodRadius = 18;
+  static const double _foodRestitution = 0.88;
+  static const double _obstacleRestitution = 0.84;
+  static const double _wallRestitution = 0.82;
+  static const double _foodLinearDamping = 0.015;
+  static const double _foodAngularDamping = 0.28;
+
   final CatchCallback _onCatch;
   final CountdownCallback _onCountdown;
   final FinishCallback _onFinish;
   final Random _random = Random();
-  final List<_FallingFoodComponent> _activeItems = [];
   final ValueNotifier<double> catchZoneNotifier = ValueNotifier<double>(0.5);
 
+  final List<_FoodBody> _foods = [];
+  final Map<String, TextPainter> _emojiPainters = {};
+
   MissionDefinition? _mission;
+  List<_BoardObstacle> _obstacles = const [];
   bool _running = false;
   double _catchZoneNormalizedX = 0.5;
   double _spawnTimer = 0;
@@ -38,26 +50,9 @@ class FoodMissionGame extends FlameGame {
   Color backgroundColor() => Colors.transparent;
 
   @override
-  void render(Canvas canvas) {
-    final rect = Offset.zero & Size(size.x, size.y);
-    final gradient = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFFFFF2C7), Color(0xFFFFD6BF), Color(0xFFFFF8EE)],
-      ).createShader(rect);
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, const Radius.circular(36)),
-      gradient,
-    );
-
-    final accentPaint = Paint()..color = const Color(0x33E8643D);
-    canvas.drawCircle(Offset(size.x * 0.18, size.y * 0.16), 58, accentPaint);
-    canvas.drawCircle(Offset(size.x * 0.84, size.y * 0.28), 74, accentPaint);
-    canvas.drawCircle(Offset(size.x * 0.5, size.y * 0.72), 92, accentPaint);
-
-    super.render(canvas);
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    _obstacles = _buildObstacles(size);
   }
 
   void startMission(MissionDefinition mission) {
@@ -65,6 +60,7 @@ class FoodMissionGame extends FlameGame {
     _mission = mission;
     _remainingTime = mission.durationSeconds.toDouble();
     _reportedSeconds = mission.durationSeconds;
+    _spawnTimer = 0.2;
     _onCountdown(_reportedSeconds);
     _running = true;
   }
@@ -72,14 +68,11 @@ class FoodMissionGame extends FlameGame {
   void resetMission() {
     _running = false;
     _mission = null;
-    for (final item in List<_FallingFoodComponent>.from(_activeItems)) {
-      item.removeFromParent();
-    }
-    _activeItems.clear();
+    _foods.clear();
   }
 
   void moveCatchZone(double normalizedX) {
-    _catchZoneNormalizedX = normalizedX.clamp(0.1, 0.9);
+    _catchZoneNormalizedX = normalizedX.clamp(0.12, 0.88);
     catchZoneNotifier.value = _catchZoneNormalizedX;
   }
 
@@ -90,6 +83,7 @@ class FoodMissionGame extends FlameGame {
   @override
   void update(double dt) {
     super.update(dt);
+
     if (!_running || _mission == null) {
       return;
     }
@@ -104,15 +98,49 @@ class FoodMissionGame extends FlameGame {
     _spawnTimer -= dt;
     if (_spawnTimer <= 0) {
       _spawnFood();
-      _spawnTimer = 0.48 + (_random.nextDouble() * 0.22);
+      _spawnTimer =
+          _spawnIntervalMin + (_random.nextDouble() * _spawnIntervalVariance);
     }
 
-    _checkCollisionsAndBounds();
+    _stepPhysics(dt);
+    _checkCatchZone();
+    _removeMissedFood();
 
     if (_remainingTime <= 0) {
       _running = false;
       _onFinish();
     }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final rect = Offset.zero & Size(size.x, size.y);
+    final backgroundPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFFFFF2C7), Color(0xFFFFD6BF), Color(0xFFFFF8EE)],
+      ).createShader(rect);
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(36)),
+      backgroundPaint,
+    );
+
+    final ambientPaint = Paint()..color = const Color(0x22E8643D);
+    canvas.drawCircle(Offset(size.x * 0.20, size.y * 0.19), 54, ambientPaint);
+    canvas.drawCircle(Offset(size.x * 0.82, size.y * 0.30), 72, ambientPaint);
+    canvas.drawCircle(Offset(size.x * 0.50, size.y * 0.70), 88, ambientPaint);
+
+    for (final obstacle in _obstacles) {
+      obstacle.render(canvas);
+    }
+
+    for (final food in _foods) {
+      _renderFood(canvas, food);
+    }
+
+    super.render(canvas);
   }
 
   Rect get catchZoneRect {
@@ -130,73 +158,398 @@ class FoodMissionGame extends FlameGame {
 
   void _spawnFood() {
     final mission = _mission;
-    if (mission == null) {
+    if (mission == null || size.x <= 0 || size.y <= 0) {
       return;
     }
 
-    final isTarget = _random.nextDouble() > 0.32;
+    final isTarget = _random.nextDouble() > 0.34;
     final source = isTarget ? mission.targetItemIds : mission.distractorItemIds;
     final item =
         MissionCatalog.itemsById[source[_random.nextInt(source.length)]]!;
-    final spawnX = 36 + _random.nextDouble() * (size.x - 72);
-    final component = _FallingFoodComponent(
-      foodItem: item,
-      isTarget: isTarget,
-      initialPosition: Vector2(spawnX, -12),
-      speed: 150 + _random.nextDouble() * 120,
-      drift: (_random.nextDouble() - 0.5) * 20,
+
+    final spawnX =
+        (_foodRadius + 24) +
+        _random.nextDouble() * max(60, size.x - ((_foodRadius + 24) * 2));
+    final initialVelocity = Vector2(
+      (_random.nextDouble() - 0.5) * 210,
+      20 + (_random.nextDouble() * 90),
     );
-    _activeItems.add(component);
-    add(component);
+
+    _foods.add(
+      _FoodBody(
+        foodItem: item,
+        isTarget: isTarget,
+        position: Vector2(spawnX, -_foodRadius - (_random.nextDouble() * 24)),
+        velocity: initialVelocity,
+        radius: _foodRadius,
+        angle: (_random.nextDouble() - 0.5) * 0.25,
+        angularVelocity: (_random.nextDouble() - 0.5) * 4.2,
+      ),
+    );
   }
 
-  void _checkCollisionsAndBounds() {
-    final catchRect = catchZoneRect;
-    for (final item in List<_FallingFoodComponent>.from(_activeItems)) {
-      if (item.collisionRect.overlaps(catchRect)) {
-        _activeItems.remove(item);
-        item.removeFromParent();
-        _onCatch(item.isTarget);
-        continue;
+  void _stepPhysics(double dt) {
+    for (final food in _foods) {
+      food.velocity.y += _gravity * dt;
+      food.velocity.x *= 1 - (_foodLinearDamping * dt * 60);
+      food.angularVelocity *= 1 - (_foodAngularDamping * dt);
+      food.position += food.velocity * dt;
+      food.angle += food.angularVelocity * dt;
+
+      _resolveWallCollisions(food);
+      for (final obstacle in _obstacles) {
+        obstacle.resolve(food);
       }
-      if (item.position.y > size.y + 40) {
-        _activeItems.remove(item);
-        item.removeFromParent();
+    }
+
+    for (var i = 0; i < _foods.length; i++) {
+      for (var j = i + 1; j < _foods.length; j++) {
+        _resolveFoodCollision(_foods[i], _foods[j]);
       }
     }
   }
+
+  void _resolveWallCollisions(_FoodBody food) {
+    if (food.position.x - food.radius < 0) {
+      food.position.x = food.radius;
+      food.velocity.x = food.velocity.x.abs() * _wallRestitution;
+      food.angularVelocity += 0.5;
+    } else if (food.position.x + food.radius > size.x) {
+      food.position.x = size.x - food.radius;
+      food.velocity.x = -food.velocity.x.abs() * _wallRestitution;
+      food.angularVelocity -= 0.5;
+    }
+
+    if (food.position.y - food.radius < 0) {
+      food.position.y = food.radius;
+      food.velocity.y = food.velocity.y.abs() * _wallRestitution;
+    }
+  }
+
+  void _resolveFoodCollision(_FoodBody first, _FoodBody second) {
+    final delta = second.position - first.position;
+    final distance = delta.length;
+    final minDistance = first.radius + second.radius;
+    if (distance >= minDistance) {
+      return;
+    }
+
+    final safeDistance = distance <= 0.0001 ? 0.0001 : distance;
+    final normal = delta / safeDistance;
+    final penetration = minDistance - safeDistance;
+    final correction = normal * (penetration / 2);
+    first.position -= correction;
+    second.position += correction;
+
+    final relativeVelocity = second.velocity - first.velocity;
+    final velocityAlongNormal = relativeVelocity.dot(normal);
+    if (velocityAlongNormal > 0) {
+      return;
+    }
+
+    const restitution = _foodRestitution;
+    final impulseMagnitude = -(1 + restitution) * velocityAlongNormal / 2;
+    final impulse = normal * impulseMagnitude;
+    first.velocity -= impulse;
+    second.velocity += impulse;
+
+    final tangent = Vector2(-normal.y, normal.x);
+    final spin = relativeVelocity.dot(tangent) * 0.012;
+    first.angularVelocity -= spin;
+    second.angularVelocity += spin;
+  }
+
+  void _checkCatchZone() {
+    final catcher = catchZoneRect;
+    _foods.removeWhere((food) {
+      final foodRect = Rect.fromCircle(
+        center: Offset(food.position.x, food.position.y),
+        radius: food.radius,
+      );
+      if (!foodRect.overlaps(catcher)) {
+        return false;
+      }
+      _onCatch(food.isTarget);
+      return true;
+    });
+  }
+
+  void _removeMissedFood() {
+    _foods.removeWhere((food) => food.position.y - food.radius > size.y + 64);
+  }
+
+  void _renderFood(Canvas canvas, _FoodBody food) {
+    final painter = _emojiPainters.putIfAbsent(
+      food.foodItem.emoji,
+      () => TextPainter(
+        text: TextSpan(
+          text: food.foodItem.emoji,
+          style: const TextStyle(fontSize: 34),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout(),
+    );
+
+    canvas.save();
+    canvas.translate(food.position.x, food.position.y);
+    canvas.rotate(food.angle);
+    painter.paint(canvas, Offset(-painter.width / 2, -painter.height / 2));
+    canvas.restore();
+  }
+
+  List<_BoardObstacle> _buildObstacles(Vector2 boardSize) {
+    if (boardSize.x <= 0 || boardSize.y <= 0) {
+      return const [];
+    }
+
+    return [
+      _CircleObstacle(
+        center: Offset(boardSize.x * 0.22, boardSize.y * 0.16),
+        radius: 22,
+        color: const Color(0xFFF4A261),
+      ),
+      _SquareObstacle(
+        rect: Rect.fromCenter(
+          center: Offset(boardSize.x * 0.50, boardSize.y * 0.12),
+          width: 44,
+          height: 44,
+        ),
+        color: const Color(0xFFE76F51),
+      ),
+      _TriangleObstacle(
+        points: [
+          Offset(boardSize.x * 0.74, boardSize.y * 0.10),
+          Offset(boardSize.x * 0.68, boardSize.y * 0.20),
+          Offset(boardSize.x * 0.80, boardSize.y * 0.20),
+        ],
+        color: const Color(0xFF2A9D8F),
+      ),
+      _CircleObstacle(
+        center: Offset(boardSize.x * 0.60, boardSize.y * 0.25),
+        radius: 16,
+        color: const Color(0xFFE9C46A),
+      ),
+    ];
+  }
 }
 
-class _FallingFoodComponent extends TextComponent {
-  _FallingFoodComponent({
+class _FoodBody {
+  _FoodBody({
     required this.foodItem,
     required this.isTarget,
-    required Vector2 initialPosition,
-    required this.speed,
-    required this.drift,
-  }) : super(
-         text: foodItem.emoji,
-         position: initialPosition,
-         anchor: Anchor.center,
-         priority: 2,
-         textRenderer: TextPaint(style: const TextStyle(fontSize: 34)),
-       );
+    required this.position,
+    required this.velocity,
+    required this.radius,
+    required this.angle,
+    required this.angularVelocity,
+  });
 
   final FoodItem foodItem;
   final bool isTarget;
-  final double speed;
-  final double drift;
+  Vector2 position;
+  Vector2 velocity;
+  final double radius;
+  double angle;
+  double angularVelocity;
+}
 
-  Rect get collisionRect => Rect.fromCenter(
-    center: Offset(position.x, position.y),
-    width: 34,
-    height: 34,
-  );
+sealed class _BoardObstacle {
+  const _BoardObstacle();
+
+  void render(Canvas canvas);
+
+  bool resolve(_FoodBody food);
+
+  void reflect(
+    _FoodBody food,
+    Vector2 normal,
+    double penetration,
+    double restitution,
+  ) {
+    final safeNormal = normal.length2 == 0
+        ? Vector2(0, -1)
+        : normal.normalized();
+    food.position += safeNormal * penetration;
+    final velocityAlongNormal = food.velocity.dot(safeNormal);
+    if (velocityAlongNormal < 0) {
+      food.velocity -= safeNormal * ((1 + restitution) * velocityAlongNormal);
+    }
+    food.angularVelocity += safeNormal.x * 0.4;
+  }
+}
+
+class _CircleObstacle extends _BoardObstacle {
+  const _CircleObstacle({
+    required this.center,
+    required this.radius,
+    required this.color,
+  });
+
+  final Offset center;
+  final double radius;
+  final Color color;
 
   @override
-  void update(double dt) {
-    super.update(dt);
-    position.y += speed * dt;
-    position.x += drift * dt;
+  void render(Canvas canvas) {
+    canvas.drawCircle(center, radius, Paint()..color = color);
+  }
+
+  @override
+  bool resolve(_FoodBody food) {
+    final delta = food.position - Vector2(center.dx, center.dy);
+    final distance = delta.length;
+    final minDistance = radius + food.radius;
+    if (distance >= minDistance) {
+      return false;
+    }
+
+    final safeDistance = distance <= 0.0001 ? 0.0001 : distance;
+    final normal = delta / safeDistance;
+    reflect(
+      food,
+      normal,
+      minDistance - safeDistance,
+      FoodMissionGame._obstacleRestitution,
+    );
+    return true;
+  }
+}
+
+class _SquareObstacle extends _BoardObstacle {
+  const _SquareObstacle({required this.rect, required this.color});
+
+  final Rect rect;
+  final Color color;
+
+  @override
+  void render(Canvas canvas) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(8)),
+      Paint()..color = color,
+    );
+  }
+
+  @override
+  bool resolve(_FoodBody food) {
+    final circleCenter = Offset(food.position.x, food.position.y);
+    final closestX = circleCenter.dx.clamp(rect.left, rect.right);
+    final closestY = circleCenter.dy.clamp(rect.top, rect.bottom);
+    final deltaX = circleCenter.dx - closestX;
+    final deltaY = circleCenter.dy - closestY;
+    final distanceSquared = (deltaX * deltaX) + (deltaY * deltaY);
+    final radiusSquared = food.radius * food.radius;
+
+    if (distanceSquared > radiusSquared && !rect.contains(circleCenter)) {
+      return false;
+    }
+
+    Vector2 normal;
+    double penetration;
+    if (rect.contains(circleCenter)) {
+      final leftPen = circleCenter.dx - rect.left;
+      final rightPen = rect.right - circleCenter.dx;
+      final topPen = circleCenter.dy - rect.top;
+      final bottomPen = rect.bottom - circleCenter.dy;
+      final minPen = [leftPen, rightPen, topPen, bottomPen].reduce(min);
+
+      if (minPen == leftPen) {
+        normal = Vector2(1, 0);
+        penetration = food.radius + leftPen;
+      } else if (minPen == rightPen) {
+        normal = Vector2(-1, 0);
+        penetration = food.radius + rightPen;
+      } else if (minPen == topPen) {
+        normal = Vector2(0, 1);
+        penetration = food.radius + topPen;
+      } else {
+        normal = Vector2(0, -1);
+        penetration = food.radius + bottomPen;
+      }
+    } else {
+      final distance = sqrt(distanceSquared);
+      final safeDistance = distance <= 0.0001 ? 0.0001 : distance;
+      normal = Vector2(deltaX / safeDistance, deltaY / safeDistance);
+      penetration = food.radius - safeDistance;
+    }
+
+    reflect(food, normal, penetration, FoodMissionGame._obstacleRestitution);
+    return true;
+  }
+}
+
+class _TriangleObstacle extends _BoardObstacle {
+  _TriangleObstacle({required List<Offset> points, required this.color})
+    : assert(points.length == 3),
+      points = List.unmodifiable(points),
+      path = Path()..addPolygon(points, true);
+
+  final List<Offset> points;
+  final Color color;
+  final Path path;
+
+  @override
+  void render(Canvas canvas) {
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool resolve(_FoodBody food) {
+    final center = Offset(food.position.x, food.position.y);
+    final inside = _pointInTriangle(center, points[0], points[1], points[2]);
+
+    double bestDistance = double.infinity;
+    Offset? bestPoint;
+    for (var index = 0; index < points.length; index++) {
+      final start = points[index];
+      final end = points[(index + 1) % points.length];
+      final closest = _closestPointOnSegment(center, start, end);
+      final distance = (center - closest).distance;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestPoint = closest;
+      }
+    }
+
+    if (!inside && bestDistance > food.radius) {
+      return false;
+    }
+
+    final collisionPoint = bestPoint ?? center;
+    final normal = Vector2(
+      center.dx - collisionPoint.dx,
+      center.dy - collisionPoint.dy,
+    );
+    final penetration = inside ? food.radius + 2 : food.radius - bestDistance;
+    reflect(food, normal, penetration, FoodMissionGame._obstacleRestitution);
+    return true;
+  }
+
+  bool _pointInTriangle(Offset point, Offset a, Offset b, Offset c) {
+    final d1 = _sign(point, a, b);
+    final d2 = _sign(point, b, c);
+    final d3 = _sign(point, c, a);
+    final hasNegative = (d1 < 0) || (d2 < 0) || (d3 < 0);
+    final hasPositive = (d1 > 0) || (d2 > 0) || (d3 > 0);
+    return !(hasNegative && hasPositive);
+  }
+
+  double _sign(Offset p1, Offset p2, Offset p3) {
+    return (p1.dx - p3.dx) * (p2.dy - p3.dy) -
+        (p2.dx - p3.dx) * (p1.dy - p3.dy);
+  }
+
+  Offset _closestPointOnSegment(Offset point, Offset start, Offset end) {
+    final segment = end - start;
+    final segmentLengthSquared =
+        (segment.dx * segment.dx) + (segment.dy * segment.dy);
+    if (segmentLengthSquared == 0) {
+      return start;
+    }
+    final projection =
+        (((point.dx - start.dx) * segment.dx) +
+            ((point.dy - start.dy) * segment.dy)) /
+        segmentLengthSquared;
+    final t = projection.clamp(0.0, 1.0);
+    return Offset(start.dx + (segment.dx * t), start.dy + (segment.dy * t));
   }
 }

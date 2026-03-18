@@ -48,8 +48,8 @@ class MissionCatalog {
   static final missions = <MissionDefinition>[
     const MissionDefinition(
       id: 'dessert',
-      title: 'Десерт',
-      tagline: 'Лови солодке, пропускай фастфуд і каву.',
+      title: 'Солодощі',
+      tagline: 'Лови солодощі, пропускай фастфуд, чай і фрукти.',
       brief: 'Гість чекає на маленьке свято після покупки.',
       goalScore: 110,
       durationSeconds: 20,
@@ -63,7 +63,7 @@ class MissionCatalog {
         'honey',
         'chocolate',
       ],
-      distractorItemIds: ['pizza', 'burger', 'fries', 'coffee', 'teapot'],
+      distractorItemIds: ['pizza', 'burger', 'fries', 'tea', 'apple'],
     ),
     const MissionDefinition(
       id: 'vitamins',
