@@ -10,6 +10,8 @@ typedef CatchCallback = void Function(bool isTarget);
 typedef CountdownCallback = void Function(int secondsLeft);
 typedef FinishCallback = void Function();
 
+enum CatcherFeedback { idle, success, error }
+
 class FoodMissionGame extends FlameGame {
   FoodMissionGame({
     required CatchCallback onCatch,
@@ -42,6 +44,8 @@ class FoodMissionGame extends FlameGame {
   final FinishCallback _onFinish;
   final Random _random = Random();
   final ValueNotifier<double> catchZoneNotifier = ValueNotifier<double>(0.5);
+  final ValueNotifier<CatcherFeedback> catchFeedbackNotifier =
+      ValueNotifier<CatcherFeedback>(CatcherFeedback.idle);
 
   final List<_FoodBody> _foods = [];
   final Map<String, TextPainter> _emojiPainters = {};
@@ -54,6 +58,7 @@ class FoodMissionGame extends FlameGame {
   double _spawnTimer = 0;
   double _remainingTime = 0;
   int _reportedSeconds = 0;
+  double _catchFeedbackTimeRemaining = 0;
 
   @override
   Color backgroundColor() => Colors.transparent;
@@ -92,6 +97,8 @@ class FoodMissionGame extends FlameGame {
     _running = false;
     _mission = null;
     _foods.clear();
+    _catchFeedbackTimeRemaining = 0;
+    catchFeedbackNotifier.value = CatcherFeedback.idle;
   }
 
   void moveCatchZone(double normalizedX) {
@@ -106,6 +113,7 @@ class FoodMissionGame extends FlameGame {
   @override
   void update(double dt) {
     super.update(dt);
+    _updateCatchFeedback(dt);
 
     if (!_running || _mission == null) {
       return;
@@ -296,6 +304,7 @@ class FoodMissionGame extends FlameGame {
         return false;
       }
       _onCatch(food.isTarget);
+      _triggerCatchFeedback(food.isTarget);
       return true;
     });
   }
@@ -377,6 +386,25 @@ class FoodMissionGame extends FlameGame {
       food.position = Vector2(food.position.x * scale, food.position.y * scale);
       food.velocity = Vector2(food.velocity.x * scale, food.velocity.y * scale);
       food.radius *= scale;
+    }
+  }
+
+  void _triggerCatchFeedback(bool isTarget) {
+    catchFeedbackNotifier.value = isTarget
+        ? CatcherFeedback.success
+        : CatcherFeedback.error;
+    _catchFeedbackTimeRemaining = 0.18;
+  }
+
+  void _updateCatchFeedback(double dt) {
+    if (_catchFeedbackTimeRemaining <= 0) {
+      return;
+    }
+
+    _catchFeedbackTimeRemaining = max(0, _catchFeedbackTimeRemaining - dt);
+    if (_catchFeedbackTimeRemaining == 0 &&
+        catchFeedbackNotifier.value != CatcherFeedback.idle) {
+      catchFeedbackNotifier.value = CatcherFeedback.idle;
     }
   }
 }

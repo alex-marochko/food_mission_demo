@@ -346,27 +346,35 @@ class _GameBoard extends StatelessWidget {
                 ),
                 Positioned.fill(
                   child: IgnorePointer(
-                    child: ValueListenableBuilder<double>(
-                      valueListenable: game.catchZoneNotifier,
-                      builder: (context, normalizedX, child) {
-                        final catcherWidth = 112 * boardScale;
-                        final left =
-                            (constraints.maxWidth * normalizedX) -
-                            (catcherWidth / 2);
-                        return Stack(
-                          children: [
-                            Positioned(
-                              left: left.clamp(
-                                0.0,
-                                constraints.maxWidth - catcherWidth,
-                              ),
-                              bottom: 18 * boardScale,
-                              child: child!,
-                            ),
-                          ],
+                    child: ValueListenableBuilder<CatcherFeedback>(
+                      valueListenable: game.catchFeedbackNotifier,
+                      builder: (context, feedback, _) {
+                        return ValueListenableBuilder<double>(
+                          valueListenable: game.catchZoneNotifier,
+                          builder: (context, normalizedX, child) {
+                            final catcherWidth = 112 * boardScale;
+                            final left =
+                                (constraints.maxWidth * normalizedX) -
+                                (catcherWidth / 2);
+                            return Stack(
+                              children: [
+                                Positioned(
+                                  left: left.clamp(
+                                    0.0,
+                                    constraints.maxWidth - catcherWidth,
+                                  ),
+                                  bottom: 18 * boardScale,
+                                  child: child!,
+                                ),
+                              ],
+                            );
+                          },
+                          child: _CatcherOverlay(
+                            scale: boardScale,
+                            feedback: feedback,
+                          ),
                         );
                       },
-                      child: _CatcherOverlay(scale: boardScale),
                     ),
                   ),
                 ),
@@ -380,36 +388,54 @@ class _GameBoard extends StatelessWidget {
 }
 
 class _CatcherOverlay extends StatelessWidget {
-  const _CatcherOverlay({required this.scale});
+  const _CatcherOverlay({required this.scale, required this.feedback});
 
   final double scale;
+  final CatcherFeedback feedback;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFFCE4A), Color(0xFFFF8B3D)],
+    final gradient = switch (feedback) {
+      CatcherFeedback.success => const [Color(0xFF68D97F), Color(0xFF2FB863)],
+      CatcherFeedback.error => const [Color(0xFFFF8A80), Color(0xFFE24D43)],
+      CatcherFeedback.idle => const [Color(0xFFFFCE4A), Color(0xFFFF8B3D)],
+    };
+    final glowColor = switch (feedback) {
+      CatcherFeedback.success => const Color(0x663CCB69),
+      CatcherFeedback.error => const Color(0x66E24D43),
+      CatcherFeedback.idle => const Color(0x29000000),
+    };
+    final pulseScale = feedback == CatcherFeedback.idle ? 1.0 : 1.08;
+
+    return AnimatedScale(
+      scale: pulseScale,
+      duration: const Duration(milliseconds: 140),
+      curve: Curves.easeOutBack,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: gradient),
+          borderRadius: BorderRadius.circular(24 * scale),
+          border: Border.all(color: const Color(0xFF191613), width: 3 * scale),
+          boxShadow: [
+            BoxShadow(
+              color: glowColor,
+              offset: Offset(0, 12 * scale),
+              blurRadius: 18 * scale,
+            ),
+          ],
         ),
-        borderRadius: BorderRadius.circular(24 * scale),
-        border: Border.all(color: const Color(0xFF191613), width: 3 * scale),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x29000000),
-            offset: Offset(0, 12 * scale),
-            blurRadius: 16 * scale,
-          ),
-        ],
-      ),
-      child: SizedBox(
-        width: 112 * scale,
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: 16 * scale,
-            vertical: 12 * scale,
-          ),
-          child: Center(
-            child: Text('🛒', style: TextStyle(fontSize: 46 * scale)),
+        child: SizedBox(
+          width: 112 * scale,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: 16 * scale,
+              vertical: 12 * scale,
+            ),
+            child: Center(
+              child: Text('🛒', style: TextStyle(fontSize: 46 * scale)),
+            ),
           ),
         ),
       ),
