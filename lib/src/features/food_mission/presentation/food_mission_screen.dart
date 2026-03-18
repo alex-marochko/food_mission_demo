@@ -328,17 +328,11 @@ class _GameBoard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _BoardTopOverlay(
+                          scale: boardScale,
                           maxWidth: constraints.maxWidth - (overlayInset * 2),
                           missionTitle: state.selectedMission.title,
                           goalScore: state.selectedMission.goalScore,
                           remainingSeconds: state.remainingSeconds,
-                        ),
-                        const Spacer(),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 220),
-                          child: state.isPlaying
-                              ? _ComboBanner(combo: state.combo)
-                              : _ReadyBanner(state: state),
                         ),
                       ],
                     ),
@@ -445,12 +439,14 @@ class _CatcherOverlay extends StatelessWidget {
 
 class _BoardTopOverlay extends StatelessWidget {
   const _BoardTopOverlay({
+    required this.scale,
     required this.maxWidth,
     required this.missionTitle,
     required this.goalScore,
     required this.remainingSeconds,
   });
 
+  final double scale;
   final double maxWidth;
   final String missionTitle;
   final int goalScore;
@@ -459,19 +455,23 @@ class _BoardTopOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pills = [
-      _OverlayPill(label: 'Місія', value: missionTitle),
-      _OverlayPill(label: 'Ціль', value: '$goalScore'),
-      _OverlayPill(label: 'Час', value: '${remainingSeconds}s'),
+      _OverlayPill(label: 'Місія', value: missionTitle, scale: scale),
+      _OverlayPill(label: 'Ціль', value: '$goalScore', scale: scale),
+      _OverlayPill(label: 'Час', value: '${remainingSeconds}s', scale: scale),
     ];
 
     if (maxWidth < 360) {
-      return Wrap(spacing: 8, runSpacing: 8, children: pills);
+      return Wrap(
+        spacing: 8 * scale,
+        runSpacing: 8 * scale,
+        children: pills,
+      );
     }
 
     return Row(
       children: [
         pills[0],
-        const SizedBox(width: 8),
+        SizedBox(width: 8 * scale),
         pills[1],
         const Spacer(),
         pills[2],
@@ -481,100 +481,47 @@ class _BoardTopOverlay extends StatelessWidget {
 }
 
 class _OverlayPill extends StatelessWidget {
-  const _OverlayPill({required this.label, required this.value});
+  const _OverlayPill({
+    required this.label,
+    required this.value,
+    required this.scale,
+  });
 
   final String label;
   final String value;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final labelStyle = theme.textTheme.labelSmall?.copyWith(
+      color: const Color(0xFF7E6B5C),
+      fontSize: (theme.textTheme.labelSmall?.fontSize ?? 11) * scale * 1.3,
+      height: 1.0,
+    );
+    final valueStyle = theme.textTheme.titleMedium?.copyWith(
+      fontSize: (theme.textTheme.titleMedium?.fontSize ?? 16) * scale * 1.3,
+      height: 1.0,
+    );
+
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(18 * scale),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: EdgeInsets.symmetric(
+          horizontal: 12 * scale,
+          vertical: 10 * scale,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: const Color(0xFF7E6B5C),
-              ),
-            ),
-            Text(value, style: theme.textTheme.titleMedium),
+            Text(label, style: labelStyle),
+            SizedBox(height: 2 * scale),
+            Text(value, style: valueStyle),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ReadyBanner extends StatelessWidget {
-  const _ReadyBanner({required this.state});
-
-  final MissionSessionState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = switch (state.status) {
-      MissionSessionStatus.ready => 'Перетягни кошик та запускай місію',
-      MissionSessionStatus.won =>
-        'Ціль виконано. Можна показувати reward reveal',
-      MissionSessionStatus.lost => 'Ще одна спроба і можна докрутити баланс',
-      MissionSessionStatus.playing => '',
-    };
-
-    return Align(
-      alignment: Alignment.bottomLeft,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.86),
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          child: Text(text, style: Theme.of(context).textTheme.titleMedium),
-        ),
-      ),
-    );
-  }
-}
-
-class _ComboBanner extends StatelessWidget {
-  const _ComboBanner({required this.combo});
-
-  final int combo;
-
-  @override
-  Widget build(BuildContext context) {
-    final title = combo >= 5
-        ? 'Hot streak x$combo'
-        : combo >= 3
-        ? 'Combo x$combo'
-        : 'Лови цільові emoji';
-
-    return Align(
-      alignment: Alignment.bottomLeft,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF191613), Color(0xFFE8643D)],
-          ),
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          child: Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(color: Colors.white),
-          ),
         ),
       ),
     );
