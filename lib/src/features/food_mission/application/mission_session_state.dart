@@ -8,6 +8,8 @@ class MissionSessionState extends Equatable {
   const MissionSessionState({
     required this.level,
     required this.status,
+    required this.totalScore,
+    required this.pendingAwardScore,
     required this.score,
     required this.goalLocked,
     required this.combo,
@@ -22,6 +24,8 @@ class MissionSessionState extends Equatable {
     return MissionSessionState(
       level: level,
       status: MissionSessionStatus.intro,
+      totalScore: 0,
+      pendingAwardScore: 0,
       score: 0,
       goalLocked: false,
       combo: 0,
@@ -34,6 +38,8 @@ class MissionSessionState extends Equatable {
 
   final LevelDefinition level;
   final MissionSessionStatus status;
+  final int totalScore;
+  final int pendingAwardScore;
   final int score;
   final bool goalLocked;
   final int combo;
@@ -55,6 +61,8 @@ class MissionSessionState extends Equatable {
   MissionSessionState copyWith({
     LevelDefinition? level,
     MissionSessionStatus? status,
+    int? totalScore,
+    int? pendingAwardScore,
     int? score,
     bool? goalLocked,
     int? combo,
@@ -66,6 +74,8 @@ class MissionSessionState extends Equatable {
     return MissionSessionState(
       level: level ?? this.level,
       status: status ?? this.status,
+      totalScore: totalScore ?? this.totalScore,
+      pendingAwardScore: pendingAwardScore ?? this.pendingAwardScore,
       score: score ?? this.score,
       goalLocked: goalLocked ?? this.goalLocked,
       combo: combo ?? this.combo,
@@ -79,10 +89,13 @@ class MissionSessionState extends Equatable {
   MissionSessionState resetForLevel(
     LevelDefinition nextLevel, {
     required MissionSessionStatus status,
+    int? totalScore,
   }) {
     return MissionSessionState(
       level: nextLevel,
       status: status,
+      totalScore: totalScore ?? this.totalScore,
+      pendingAwardScore: 0,
       score: 0,
       goalLocked: false,
       combo: 0,
@@ -97,6 +110,8 @@ class MissionSessionState extends Equatable {
   List<Object?> get props => [
     level,
     status,
+    totalScore,
+    pendingAwardScore,
     score,
     goalLocked,
     combo,

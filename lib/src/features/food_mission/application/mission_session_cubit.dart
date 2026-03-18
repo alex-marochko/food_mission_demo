@@ -10,6 +10,7 @@ class MissionSessionCubit extends Cubit<MissionSessionState> {
       state.resetForLevel(
         state.level,
         status: MissionSessionStatus.playing,
+        totalScore: state.totalScore,
       ),
     );
   }
@@ -19,17 +20,20 @@ class MissionSessionCubit extends Cubit<MissionSessionState> {
       state.resetForLevel(
         state.level,
         status: MissionSessionStatus.playing,
+        totalScore: state.totalScore,
       ),
     );
   }
 
   void openNextLevelIntro() {
+    final committedTotalScore = state.totalScore + state.pendingAwardScore;
     final nextLevelNumber = state.canAdvance ? state.level.number + 1 : 1;
     final nextLevel = LevelPlanner.levelFor(nextLevelNumber);
     emit(
       state.resetForLevel(
         nextLevel,
         status: MissionSessionStatus.intro,
+        totalScore: committedTotalScore,
       ),
     );
   }
@@ -82,6 +86,7 @@ class MissionSessionCubit extends Cubit<MissionSessionState> {
         status: state.achievedGoal
             ? MissionSessionStatus.won
             : MissionSessionStatus.lost,
+        pendingAwardScore: state.achievedGoal ? state.score : 0,
         combo: 0,
         remainingSeconds: 0,
       ),

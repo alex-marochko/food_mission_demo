@@ -12,6 +12,8 @@
 - At the end of each level:
   - success popup: congratulates the player and offers `Retry` or `Next level`
   - failure popup: shows a sad state and offers `Retry`
+  - success popup includes both `level score` and `total score`
+  - the success popup uses a staged native Flutter animation where the level score transfers into the total score
 
 ## Mission Rotation
 
@@ -127,6 +129,24 @@ The catcher is rendered as a single `🛒` icon with short feedback states:
 - success catch: stronger green flash
 - wrong catch: stronger red flash
 - brief scale pulse on both
+
+## Win Popup Animation
+
+The win popup demonstrates native Flutter animation capabilities using:
+
+- `AnimationController`
+- `CurvedAnimation`
+- `Tween`
+- `IntTween`
+- `AnimatedBuilder`
+
+Sequence:
+
+1. popup enters
+2. level score counts up
+3. level score visually flies toward total score
+4. source score fades out
+5. total score counts up by the awarded amount
 
 ## Architecture Notes
 

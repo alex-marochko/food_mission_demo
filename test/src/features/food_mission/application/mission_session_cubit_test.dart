@@ -11,6 +11,8 @@ void main() {
       expect(cubit.state.level.number, 1);
       expect(cubit.state.level.mission.id, 'goodbye_diet');
       expect(cubit.state.remainingSeconds, 20);
+      expect(cubit.state.totalScore, 0);
+      expect(cubit.state.pendingAwardScore, 0);
       expect(cubit.state.goalLocked, isFalse);
     });
 
@@ -52,6 +54,7 @@ void main() {
       expect(cubit.state.status, MissionSessionStatus.playing);
       expect(cubit.state.goalLocked, isTrue);
       expect(cubit.state.score, greaterThanOrEqualTo(cubit.state.level.goalScore));
+      expect(cubit.state.pendingAwardScore, 0);
     });
 
     test('goal lock prevents dropping below goal score', () {
@@ -89,6 +92,7 @@ void main() {
 
       expect(cubit.state.status, MissionSessionStatus.won);
       expect(cubit.state.remainingSeconds, 0);
+      expect(cubit.state.pendingAwardScore, cubit.state.score);
     });
 
     test('marks level as lost when timer ends before goal', () {
@@ -98,6 +102,39 @@ void main() {
 
       expect(cubit.state.status, MissionSessionStatus.lost);
       expect(cubit.state.remainingSeconds, 0);
+    });
+
+    test('commits pending level score into total score on next level intro', () {
+      final cubit = MissionSessionCubit()..startCurrentLevel();
+
+      while (!cubit.state.goalLocked) {
+        cubit.registerCatch(isTarget: true);
+      }
+      cubit.finishLevelFromTimer();
+
+      final levelScore = cubit.state.score;
+      cubit.openNextLevelIntro();
+
+      expect(cubit.state.status, MissionSessionStatus.intro);
+      expect(cubit.state.level.number, 2);
+      expect(cubit.state.totalScore, levelScore);
+      expect(cubit.state.pendingAwardScore, 0);
+    });
+
+    test('retry after win does not duplicate total score', () {
+      final cubit = MissionSessionCubit()..startCurrentLevel();
+
+      while (!cubit.state.goalLocked) {
+        cubit.registerCatch(isTarget: true);
+      }
+      cubit.finishLevelFromTimer();
+
+      cubit.retryLevel();
+
+      expect(cubit.state.status, MissionSessionStatus.playing);
+      expect(cubit.state.totalScore, 0);
+      expect(cubit.state.pendingAwardScore, 0);
+      expect(cubit.state.score, 0);
     });
   });
 }

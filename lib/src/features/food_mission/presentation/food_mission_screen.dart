@@ -356,6 +356,9 @@ class _BoardPopupLayer extends StatelessWidget {
                 onStart: onStart,
               ),
               MissionSessionStatus.won => _LevelResultPopup(
+                key: ValueKey(
+                  'win-${state.level.number}-${state.score}-${state.totalScore}',
+                ),
                 state: state,
                 scale: scale,
                 onRetry: onRetry,
@@ -481,8 +484,9 @@ class _LevelIntroPopup extends StatelessWidget {
   }
 }
 
-class _LevelResultPopup extends StatelessWidget {
+class _LevelResultPopup extends StatefulWidget {
   const _LevelResultPopup({
+    super.key,
     required this.state,
     required this.scale,
     required this.onRetry,
@@ -495,63 +499,249 @@ class _LevelResultPopup extends StatelessWidget {
   final VoidCallback onNext;
 
   @override
+  State<_LevelResultPopup> createState() => _LevelResultPopupState();
+}
+
+class _LevelResultPopupState extends State<_LevelResultPopup>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 3200),
+  )..forward();
+
+  late final Animation<double> _entrance = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.0, 0.18, curve: Curves.easeOutBack),
+  );
+  late final Animation<double> _scoreBuild = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.32, 0.52, curve: Curves.easeOutCubic),
+  );
+  late final Animation<double> _flight = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.56, 0.78, curve: Curves.easeInOutCubic),
+  );
+  late final Animation<double> _totalBuild = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.78, 1.0, curve: Curves.easeOutCubic),
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final nextLabel = state.canAdvance ? 'Наступний рівень' : 'На 1 рівень';
+    final nextLabel = widget.state.canAdvance
+        ? 'Наступний рівень'
+        : 'На 1 рівень';
+    final levelScore = widget.state.pendingAwardScore;
+    final currentTotal = widget.state.totalScore;
+    final targetTotal = currentTotal + levelScore;
 
-    return _PopupShell(
-      scale: scale,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Рівень ${state.level.number} пройдено',
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontSize: (theme.textTheme.headlineSmall?.fontSize ?? 28) * scale,
-            ),
+    return FadeTransition(
+      opacity: _entrance,
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.92, end: 1).animate(_entrance),
+        child: _PopupShell(
+          scale: widget.scale,
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              final sourceValue = IntTween(
+                begin: 0,
+                end: levelScore,
+              ).evaluate(_scoreBuild);
+              final totalValue = _controller.value < 0.78
+                  ? currentTotal
+                  : IntTween(
+                      begin: currentTotal,
+                      end: targetTotal,
+                    ).evaluate(_totalBuild);
+              final sourceOpacity = _controller.value < 0.74
+                  ? 1.0
+                  : (1 - CurvedAnimation(
+                          parent: _controller,
+                          curve: const Interval(0.74, 0.84, curve: Curves.easeIn),
+                        ).value)
+                      .clamp(0.0, 1.0);
+              final floatingOpacity = _controller.value < 0.56
+                  ? 0.0
+                  : _controller.value < 0.8
+                  ? 1.0
+                  : 0.0;
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Рівень ${widget.state.level.number} пройдено',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontSize:
+                          (theme.textTheme.headlineSmall?.fontSize ?? 28) *
+                          widget.scale,
+                    ),
+                  ),
+                  SizedBox(height: 10 * widget.scale),
+                  Text(
+                    'Мета закрита. Очки рівня перелетять у загальний рахунок.',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: const Color(0xFF5B4A3E),
+                    ),
+                  ),
+                  SizedBox(height: 20 * widget.scale),
+                  SizedBox(
+                    height: 188 * widget.scale,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final scoreCardWidth = 136 * widget.scale;
+                        final scoreCardHeight = 92 * widget.scale;
+                        final comboCardWidth = 120 * widget.scale;
+                        final totalCardWidth = 190 * widget.scale;
+                        final totalCardHeight = 98 * widget.scale;
+
+                        final scoreOrigin = const Offset(0, 0);
+                        final comboOrigin = Offset(
+                          constraints.maxWidth - comboCardWidth,
+                          0,
+                        );
+                        final totalOrigin = Offset(
+                          (constraints.maxWidth - totalCardWidth) / 2,
+                          constraints.maxHeight - totalCardHeight,
+                        );
+
+                        final scoreCenter = Offset(
+                          scoreOrigin.dx + (scoreCardWidth / 2),
+                          scoreOrigin.dy + (scoreCardHeight / 2),
+                        );
+                        final totalCenter = Offset(
+                          totalOrigin.dx + (totalCardWidth / 2),
+                          totalOrigin.dy + (totalCardHeight / 2),
+                        );
+                        final flightPosition = Offset.lerp(
+                          scoreCenter,
+                          totalCenter,
+                          _flight.value,
+                        )!;
+
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Positioned(
+                              left: scoreOrigin.dx,
+                              top: scoreOrigin.dy,
+                              child: Opacity(
+                                opacity: sourceOpacity,
+                                child: _AnimatedMetricCard(
+                                  label: 'Очки за рівень',
+                                  value: '$sourceValue',
+                                  scale: widget.scale,
+                                  width: scoreCardWidth,
+                                  accent: const Color(0xFFE8643D),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              left: comboOrigin.dx,
+                              top: comboOrigin.dy,
+                              child: _AnimatedMetricCard(
+                                label: 'Комбо',
+                                value: 'x${widget.state.bestCombo}',
+                                scale: widget.scale,
+                                width: comboCardWidth,
+                                accent: const Color(0xFF191613),
+                              ),
+                            ),
+                            Positioned(
+                              left: totalOrigin.dx,
+                              top: totalOrigin.dy,
+                              child: _AnimatedMetricCard(
+                                label: 'Загальний рахунок',
+                                value: '$totalValue',
+                                scale: widget.scale,
+                                width: totalCardWidth,
+                                accent: const Color(0xFF16C451),
+                              ),
+                            ),
+                            if (floatingOpacity > 0)
+                              Positioned(
+                                left: flightPosition.dx - (54 * widget.scale),
+                                top: flightPosition.dy - (26 * widget.scale),
+                                child: Opacity(
+                                  opacity: floatingOpacity,
+                                  child: Transform.scale(
+                                    scale: 1.0 + (0.08 * (1 - _flight.value)),
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        gradient: const LinearGradient(
+                                          colors: [
+                                            Color(0xFFFFCE4A),
+                                            Color(0xFFFF8B3D),
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: const Color(0x44E8643D),
+                                            blurRadius: 18 * widget.scale,
+                                            offset: Offset(0, 10 * widget.scale),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 14 * widget.scale,
+                                          vertical: 10 * widget.scale,
+                                        ),
+                                        child: Text(
+                                          '+$levelScore',
+                                          style: theme.textTheme.titleMedium
+                                              ?.copyWith(
+                                                color: Colors.white,
+                                                fontSize:
+                                                    (theme.textTheme.titleMedium
+                                                                ?.fontSize ??
+                                                            18) *
+                                                        widget.scale,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  SizedBox(height: 22 * widget.scale),
+                  Wrap(
+                    spacing: 10 * widget.scale,
+                    runSpacing: 10 * widget.scale,
+                    children: [
+                      OutlinedButton(
+                        onPressed: widget.onRetry,
+                        child: const Text('Пройти знову'),
+                      ),
+                      FilledButton(
+                        onPressed: widget.onNext,
+                        child: Text(nextLabel),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
           ),
-          SizedBox(height: 10 * scale),
-          Text(
-            'Мета закрита. Можна або закріпити результат, або рухатися далі.',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: const Color(0xFF5B4A3E),
-            ),
-          ),
-          SizedBox(height: 18 * scale),
-          Wrap(
-            spacing: 10 * scale,
-            runSpacing: 10 * scale,
-            children: [
-              _PopupMetric(label: 'Очки', value: '${state.score}', scale: scale),
-              _PopupMetric(
-                label: 'Комбо',
-                value: 'x${state.bestCombo}',
-                scale: scale,
-              ),
-              _PopupMetric(
-                label: 'Залишок',
-                value: '${state.remainingSeconds}s',
-                scale: scale,
-              ),
-            ],
-          ),
-          SizedBox(height: 22 * scale),
-          Wrap(
-            spacing: 10 * scale,
-            runSpacing: 10 * scale,
-            children: [
-              OutlinedButton(
-                onPressed: onRetry,
-                child: const Text('Пройти знову'),
-              ),
-              FilledButton(
-                onPressed: onNext,
-                child: Text(nextLabel),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -643,6 +833,62 @@ class _PopupMetric extends StatelessWidget {
             Text(value, style: Theme.of(context).textTheme.titleMedium),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AnimatedMetricCard extends StatelessWidget {
+  const _AnimatedMetricCard({
+    required this.label,
+    required this.value,
+    required this.scale,
+    required this.width,
+    required this.accent,
+  });
+
+  final String label;
+  final String value;
+  final double scale;
+  final double width;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: width,
+      padding: EdgeInsets.symmetric(
+        horizontal: 14 * scale,
+        vertical: 12 * scale,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7EFE3),
+        borderRadius: BorderRadius.circular(18 * scale),
+        border: Border.all(
+          color: accent.withValues(alpha: 0.22),
+          width: 1.5 * scale,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: const Color(0xFF7E6B5C),
+            ),
+          ),
+          SizedBox(height: 6 * scale),
+          Text(
+            value,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: accent,
+              fontSize: (theme.textTheme.headlineSmall?.fontSize ?? 24) * scale,
+            ),
+          ),
+        ],
       ),
     );
   }
