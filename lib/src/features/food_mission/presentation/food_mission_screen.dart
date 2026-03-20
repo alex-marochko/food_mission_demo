@@ -1,4 +1,5 @@
 import 'package:flame/game.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -15,13 +16,16 @@ class FoodMissionScreen extends StatefulWidget {
   State<FoodMissionScreen> createState() => _FoodMissionScreenState();
 }
 
-class _FoodMissionScreenState extends State<FoodMissionScreen> {
+class _FoodMissionScreenState extends State<FoodMissionScreen>
+    with WidgetsBindingObserver {
   late FoodMissionGame _game;
   final FocusNode _gameFocusNode = FocusNode(debugLabel: 'food-mission-game');
+  bool _isPaused = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _game = _createGame();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -44,8 +48,17 @@ class _FoodMissionScreenState extends State<FoodMissionScreen> {
   @override
   void dispose() {
     _game.resetMission();
+    WidgetsBinding.instance.removeObserver(this);
     _gameFocusNode.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      return;
+    }
+    _pauseGameplay();
   }
 
   FoodMissionGame _createGame() {
@@ -59,25 +72,42 @@ class _FoodMissionScreenState extends State<FoodMissionScreen> {
     );
   }
 
-  Future<void> _openDebugWinPopup() async {
-    final debugState = MissionSessionState(
-      level: LevelPlanner.levelFor(17),
-      status: MissionSessionStatus.won,
+  MissionSessionState _debugStateFor(MissionSessionStatus status) {
+    final level = LevelPlanner.levelFor(switch (status) {
+      MissionSessionStatus.intro => 6,
+      MissionSessionStatus.playing => 8,
+      MissionSessionStatus.won => 17,
+      MissionSessionStatus.lost => 14,
+    });
+
+    return MissionSessionState(
+      level: level,
+      status: status,
       totalScore: 1240,
-      pendingAwardScore: 188,
-      score: 188,
-      goalLocked: true,
-      combo: 0,
+      pendingAwardScore: status == MissionSessionStatus.won ? 188 : 0,
+      score: status == MissionSessionStatus.lost ? level.goalScore - 26 : 188,
+      goalLocked: status == MissionSessionStatus.won,
+      combo: status == MissionSessionStatus.playing ? 4 : 0,
       bestCombo: 8,
       caughtTargets: 14,
       caughtDistractors: 2,
-      remainingSeconds: 0,
+      remainingSeconds: status == MissionSessionStatus.playing ? 23 : 0,
     );
+  }
+
+  Future<void> _openPopupPreview(MissionSessionStatus status) async {
+    final currentState = context.read<MissionSessionCubit>().state;
+    final shouldResumeAfterPreview = currentState.isPlaying && !_isPaused;
+    if (shouldResumeAfterPreview) {
+      _pauseGameplay();
+    }
+
+    final debugState = _debugStateFor(status);
 
     await showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
-      barrierLabel: 'debug-win-popup',
+      barrierLabel: 'debug-popup-preview',
       barrierColor: Colors.black.withValues(alpha: 0.24),
       pageBuilder: (dialogContext, animation, secondaryAnimation) {
         return SafeArea(
@@ -89,15 +119,35 @@ class _FoodMissionScreenState extends State<FoodMissionScreen> {
                   final popupWidth = constraints.maxWidth.clamp(320.0, 460.0);
                   final scale = popupWidth / 420;
 
-                  return ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: popupWidth),
-                    child: _LevelResultPopup(
+                  final child = switch (status) {
+                    MissionSessionStatus.intro => _LevelIntroPopup(
+                      state: debugState,
+                      scale: scale,
+                      onStart: Navigator.of(dialogContext).pop,
+                    ),
+                    MissionSessionStatus.won => _LevelResultPopup(
                       key: const ValueKey('debug-win-popup'),
                       state: debugState,
                       scale: scale,
                       onRetry: Navigator.of(dialogContext).pop,
                       onNext: Navigator.of(dialogContext).pop,
                     ),
+                    MissionSessionStatus.lost => _LevelRetryPopup(
+                      state: debugState,
+                      scale: scale,
+                      onRetry: Navigator.of(dialogContext).pop,
+                    ),
+                    MissionSessionStatus.playing => _LevelPausePopup(
+                      state: debugState,
+                      scale: scale,
+                      onResume: Navigator.of(dialogContext).pop,
+                      onRetry: Navigator.of(dialogContext).pop,
+                    ),
+                  };
+
+                  return ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: popupWidth),
+                    child: child,
                   );
                 },
               ),
@@ -112,6 +162,49 @@ class _FoodMissionScreenState extends State<FoodMissionScreen> {
         );
       },
     );
+
+    if (!mounted || !shouldResumeAfterPreview) {
+      return;
+    }
+
+    final state = context.read<MissionSessionCubit>().state;
+    if (state.isPlaying && _isPaused) {
+      _resumeGameplay();
+    }
+  }
+
+  void _pauseGameplay() {
+    final state = context.read<MissionSessionCubit>().state;
+    if (!mounted || !state.isPlaying || _isPaused) {
+      return;
+    }
+
+    _game.pauseMission();
+    setState(() {
+      _isPaused = true;
+    });
+  }
+
+  void _resumeGameplay() {
+    if (!_isPaused) {
+      return;
+    }
+
+    _game.resumeMission();
+    setState(() {
+      _isPaused = false;
+    });
+    _gameFocusNode.requestFocus();
+  }
+
+  void _retryFromPause() {
+    final level = context.read<MissionSessionCubit>().state.level;
+    setState(() {
+      _isPaused = false;
+    });
+    context.read<MissionSessionCubit>().retryLevel();
+    _game.startMission(level);
+    _gameFocusNode.requestFocus();
   }
 
   @override
@@ -121,8 +214,15 @@ class _FoodMissionScreenState extends State<FoodMissionScreen> {
           previous.status != current.status || previous.level != current.level,
       listener: (context, state) {
         if (state.isPlaying) {
-          _game.startMission(state.level);
+          if (!_isPaused) {
+            _game.startMission(state.level);
+          }
         } else {
+          if (_isPaused) {
+            setState(() {
+              _isPaused = false;
+            });
+          }
           _game.resetMission();
         }
       },
@@ -168,6 +268,10 @@ class _FoodMissionScreenState extends State<FoodMissionScreen> {
                                     game: _game,
                                     state: state,
                                     focusNode: _gameFocusNode,
+                                    isPaused: _isPaused,
+                                    onPauseRequested: _pauseGameplay,
+                                    onResumeRequested: _resumeGameplay,
+                                    onRetryFromPause: _retryFromPause,
                                   );
                                 },
                               ),
@@ -178,17 +282,46 @@ class _FoodMissionScreenState extends State<FoodMissionScreen> {
                 ),
               ),
             ),
-            Positioned(
-              top: 20,
-              right: 20,
-              child: SafeArea(
-                child: FilledButton.icon(
-                  onPressed: _openDebugWinPopup,
-                  icon: const Icon(Icons.animation),
-                  label: const Text('Win Popup'),
+            if (kDebugMode)
+              Positioned(
+                top: 20,
+                right: 20,
+                child: SafeArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      FilledButton.tonalIcon(
+                        onPressed: () =>
+                            _openPopupPreview(MissionSessionStatus.intro),
+                        icon: const Icon(Icons.play_circle_outline),
+                        label: const Text('Intro Popup'),
+                      ),
+                      const SizedBox(height: 10),
+                      FilledButton.tonalIcon(
+                        onPressed: () =>
+                            _openPopupPreview(MissionSessionStatus.won),
+                        icon: const Icon(Icons.emoji_events_outlined),
+                        label: const Text('Win Popup'),
+                      ),
+                      const SizedBox(height: 10),
+                      FilledButton.tonalIcon(
+                        onPressed: () =>
+                            _openPopupPreview(MissionSessionStatus.lost),
+                        icon: const Icon(Icons.sentiment_dissatisfied_outlined),
+                        label: const Text('Lose Popup'),
+                      ),
+                      const SizedBox(height: 10),
+                      FilledButton.tonalIcon(
+                        onPressed: () =>
+                            _openPopupPreview(MissionSessionStatus.playing),
+                        icon: const Icon(Icons.pause_circle_outline),
+                        label: const Text('Pause Popup'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -201,11 +334,19 @@ class _GameBoard extends StatelessWidget {
     required this.game,
     required this.state,
     required this.focusNode,
+    required this.isPaused,
+    required this.onPauseRequested,
+    required this.onResumeRequested,
+    required this.onRetryFromPause,
   });
 
   final FoodMissionGame game;
   final MissionSessionState state;
   final FocusNode focusNode;
+  final bool isPaused;
+  final VoidCallback onPauseRequested;
+  final VoidCallback onResumeRequested;
+  final VoidCallback onRetryFromPause;
 
   @override
   Widget build(BuildContext context) {
@@ -221,12 +362,26 @@ class _GameBoard extends StatelessWidget {
 
         if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
             event.logicalKey == LogicalKeyboardKey.keyA) {
+          if (isPaused) {
+            return KeyEventResult.handled;
+          }
           game.nudgeCatchZone(-0.08);
           return KeyEventResult.handled;
         }
         if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
             event.logicalKey == LogicalKeyboardKey.keyD) {
+          if (isPaused) {
+            return KeyEventResult.handled;
+          }
           game.nudgeCatchZone(0.08);
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.escape) {
+          if (isPaused) {
+            onResumeRequested();
+          } else {
+            onPauseRequested();
+          }
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
@@ -310,6 +465,28 @@ class _GameBoard extends StatelessWidget {
                       onStart: cubit.startCurrentLevel,
                       onRetry: cubit.retryLevel,
                       onNext: cubit.openNextLevelIntro,
+                    ),
+                  ),
+                if (state.isPlaying && isPaused)
+                  Positioned.fill(
+                    child: ColoredBox(
+                      color: Colors.black.withValues(alpha: 0.18),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: 420 * boardScale.clamp(1.0, 1.4),
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.all(24 * boardScale),
+                            child: _LevelPausePopup(
+                              state: state,
+                              scale: boardScale,
+                              onResume: onResumeRequested,
+                              onRetry: onRetryFromPause,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
               ],
@@ -577,6 +754,10 @@ class _LevelResultPopup extends StatefulWidget {
 
 class _LevelResultPopupState extends State<_LevelResultPopup>
     with SingleTickerProviderStateMixin {
+  final GlobalKey _flightLayerKey = GlobalKey();
+  final GlobalKey _scoreCardKey = GlobalKey();
+  final GlobalKey _totalCardKey = GlobalKey();
+
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 3200),
@@ -610,10 +791,64 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
     curve: const Interval(0.78, 1.0, curve: Curves.easeOutCubic),
   );
 
+  Offset? _scoreCardCenter;
+  Offset? _totalCardCenter;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateFlightAnchors());
+  }
+
+  @override
+  void didUpdateWidget(covariant _LevelResultPopup oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateFlightAnchors());
+  }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  void _updateFlightAnchors() {
+    if (!mounted) {
+      return;
+    }
+
+    final layerContext = _flightLayerKey.currentContext;
+    final scoreContext = _scoreCardKey.currentContext;
+    final totalContext = _totalCardKey.currentContext;
+    if (layerContext == null || scoreContext == null || totalContext == null) {
+      return;
+    }
+
+    final layerBox = layerContext.findRenderObject() as RenderBox?;
+    final scoreBox = scoreContext.findRenderObject() as RenderBox?;
+    final totalBox = totalContext.findRenderObject() as RenderBox?;
+    if (layerBox == null || scoreBox == null || totalBox == null) {
+      return;
+    }
+
+    final nextScoreCenter = scoreBox.localToGlobal(
+      scoreBox.size.center(Offset.zero),
+      ancestor: layerBox,
+    );
+    final nextTotalCenter = totalBox.localToGlobal(
+      totalBox.size.center(Offset.zero),
+      ancestor: layerBox,
+    );
+
+    if (_scoreCardCenter == nextScoreCenter &&
+        _totalCardCenter == nextTotalCenter) {
+      return;
+    }
+
+    setState(() {
+      _scoreCardCenter = nextScoreCenter;
+      _totalCardCenter = nextTotalCenter;
+    });
   }
 
   @override
@@ -669,33 +904,37 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
                   ),
                   SizedBox(height: 20 * widget.scale),
                   SizedBox(
-                    height: 188 * widget.scale,
+                    height: 206 * widget.scale,
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        final scoreCardWidth = 136 * widget.scale;
-                        final scoreCardHeight = 92 * widget.scale;
-                        final comboCardWidth = 120 * widget.scale;
-                        final totalCardWidth = 190 * widget.scale;
-                        final totalCardHeight = 98 * widget.scale;
+                        final cardGap = 14 * widget.scale;
+                        final cardWidth = (constraints.maxWidth - cardGap) / 2;
+                        final cardHeight = 92 * widget.scale;
 
                         final scoreOrigin = const Offset(0, 0);
-                        final comboOrigin = Offset(
-                          constraints.maxWidth - comboCardWidth,
-                          0,
-                        );
+                        final comboOrigin = Offset(cardWidth + cardGap, 0);
+                        final goalOrigin = Offset(0, cardHeight + cardGap);
                         final totalOrigin = Offset(
-                          (constraints.maxWidth - totalCardWidth) / 2,
-                          constraints.maxHeight - totalCardHeight,
+                          cardWidth + cardGap,
+                          cardHeight + cardGap,
                         );
 
-                        final scoreCenter = Offset(
-                          scoreOrigin.dx + (scoreCardWidth / 2),
-                          scoreOrigin.dy + (scoreCardHeight / 2),
+                        WidgetsBinding.instance.addPostFrameCallback(
+                          (_) => _updateFlightAnchors(),
                         );
-                        final totalCenter = Offset(
-                          totalOrigin.dx + (totalCardWidth / 2),
-                          totalOrigin.dy + (totalCardHeight / 2),
-                        );
+
+                        final scoreCenter =
+                            _scoreCardCenter ??
+                            Offset(
+                              scoreOrigin.dx + (cardWidth / 2),
+                              scoreOrigin.dy + (cardHeight / 2),
+                            );
+                        final totalCenter =
+                            _totalCardCenter ??
+                            Offset(
+                              totalOrigin.dx + (cardWidth / 2),
+                              totalOrigin.dy + (cardHeight / 2),
+                            );
                         final flightPosition = Offset.lerp(
                           scoreCenter,
                           totalCenter,
@@ -703,16 +942,18 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
                         )!;
 
                         return Stack(
+                          key: _flightLayerKey,
                           clipBehavior: Clip.none,
                           children: [
                             Positioned(
                               left: scoreOrigin.dx,
                               top: scoreOrigin.dy,
                               child: _AnimatedMetricCard(
+                                key: _scoreCardKey,
                                 label: 'Очки за рівень',
                                 value: '$sourceValue',
                                 scale: widget.scale,
-                                width: scoreCardWidth,
+                                width: cardWidth,
                                 accent: const Color(0xFFE8643D),
                               ),
                             ),
@@ -723,18 +964,30 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
                                 label: 'Комбо',
                                 value: 'x${widget.state.bestCombo}',
                                 scale: widget.scale,
-                                width: comboCardWidth,
+                                width: cardWidth,
                                 accent: const Color(0xFF191613),
+                              ),
+                            ),
+                            Positioned(
+                              left: goalOrigin.dx,
+                              top: goalOrigin.dy,
+                              child: _AnimatedMetricCard(
+                                label: 'Ціль',
+                                value: '${widget.state.level.goalScore}',
+                                scale: widget.scale,
+                                width: cardWidth,
+                                accent: const Color(0xFF7E6B5C),
                               ),
                             ),
                             Positioned(
                               left: totalOrigin.dx,
                               top: totalOrigin.dy,
                               child: _AnimatedMetricCard(
+                                key: _totalCardKey,
                                 label: 'Загальний рахунок',
                                 value: '$totalValue',
                                 scale: widget.scale,
-                                width: totalCardWidth,
+                                width: cardWidth,
                                 accent: const Color(0xFF16C451),
                               ),
                             ),
@@ -860,9 +1113,110 @@ class _LevelRetryPopup extends StatelessWidget {
             ),
           ),
           SizedBox(height: 18 * scale),
-          _PopupMetric(label: 'Очки', value: '${state.score}', scale: scale),
+          Wrap(
+            spacing: 10 * scale,
+            runSpacing: 10 * scale,
+            children: [
+              _PopupMetric(
+                label: 'Очки',
+                value: '${state.score}',
+                scale: scale,
+              ),
+              _PopupMetric(
+                label: 'Ціль',
+                value: '${state.level.goalScore}',
+                scale: scale,
+              ),
+            ],
+          ),
           SizedBox(height: 22 * scale),
           FilledButton(onPressed: onRetry, child: const Text('Спробувати ще')),
+        ],
+      ),
+    );
+  }
+}
+
+class _LevelPausePopup extends StatelessWidget {
+  const _LevelPausePopup({
+    required this.state,
+    required this.scale,
+    required this.onResume,
+    required this.onRetry,
+  });
+
+  final MissionSessionState state;
+  final double scale;
+  final VoidCallback onResume;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return _PopupShell(
+      scale: scale,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('⏸️', style: TextStyle(fontSize: 44 * scale)),
+          SizedBox(height: 8 * scale),
+          Text(
+            'Пауза',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontSize: (theme.textTheme.headlineSmall?.fontSize ?? 28) * scale,
+            ),
+          ),
+          SizedBox(height: 10 * scale),
+          Text(
+            'Гру призупинено. Можна повернутися до раунду або перезапустити рівень.',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: const Color(0xFF5B4A3E),
+            ),
+          ),
+          SizedBox(height: 18 * scale),
+          Wrap(
+            spacing: 10 * scale,
+            runSpacing: 10 * scale,
+            children: [
+              _PopupMetric(
+                label: 'Очки',
+                value: '${state.score}',
+                scale: scale,
+              ),
+              _PopupMetric(
+                label: 'Ціль',
+                value: '${state.level.goalScore}',
+                scale: scale,
+              ),
+              _PopupMetric(
+                label: 'Час',
+                value: '${state.remainingSeconds}s',
+                scale: scale,
+              ),
+              _PopupMetric(
+                label: 'Комбо',
+                value: 'x${state.combo}',
+                scale: scale,
+              ),
+            ],
+          ),
+          SizedBox(height: 22 * scale),
+          Wrap(
+            spacing: 10 * scale,
+            runSpacing: 10 * scale,
+            children: [
+              OutlinedButton(
+                onPressed: onRetry,
+                child: const Text('Пройти знову'),
+              ),
+              FilledButton(
+                onPressed: onResume,
+                child: const Text('Продовжити'),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -913,6 +1267,7 @@ class _PopupMetric extends StatelessWidget {
 
 class _AnimatedMetricCard extends StatelessWidget {
   const _AnimatedMetricCard({
+    super.key,
     required this.label,
     required this.value,
     required this.scale,

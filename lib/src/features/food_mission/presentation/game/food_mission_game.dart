@@ -52,6 +52,7 @@ class FoodMissionGame extends FlameGame {
   LevelDefinition? _level;
   List<_BoardObstacle> _obstacles = const [];
   bool _running = false;
+  bool _paused = false;
   double _catchZoneNormalizedX = 0.5;
   double _remainingTime = 0;
   double _elapsedTime = 0;
@@ -62,9 +63,11 @@ class FoodMissionGame extends FlameGame {
   @override
   Color backgroundColor() => Colors.transparent;
 
-  static double scaleForBoardWidth(double boardWidth) => boardWidth / baseBoardWidth;
+  static double scaleForBoardWidth(double boardWidth) =>
+      boardWidth / baseBoardWidth;
 
-  double get boardScale => scaleForBoardWidth(size.x <= 0 ? baseBoardWidth : size.x);
+  double get boardScale =>
+      scaleForBoardWidth(size.x <= 0 ? baseBoardWidth : size.x);
 
   double get catcherVisualWidth => _catchVisualWidth * boardScale;
 
@@ -90,17 +93,35 @@ class FoodMissionGame extends FlameGame {
     _elapsedTime = 0;
     _spawnIndex = 0;
     _onCountdown(_reportedSeconds);
+    _paused = false;
     _running = true;
   }
 
   void resetMission() {
     _running = false;
+    _paused = false;
     _level = null;
     _foods.clear();
     _elapsedTime = 0;
     _spawnIndex = 0;
     _catchFeedbackTimeRemaining = 0;
     catchFeedbackNotifier.value = CatcherFeedback.idle;
+  }
+
+  void pauseMission() {
+    if (!_running || _level == null) {
+      return;
+    }
+    _running = false;
+    _paused = true;
+  }
+
+  void resumeMission() {
+    if (!_paused || _level == null) {
+      return;
+    }
+    _paused = false;
+    _running = true;
   }
 
   void moveCatchZone(double normalizedX) {
@@ -208,13 +229,15 @@ class FoodMissionGame extends FlameGame {
     final source = isTarget
         ? level.mission.targetItemIds
         : level.mission.distractorItemIds;
-    final item = MissionCatalog.itemsById[source[_random.nextInt(source.length)]]!;
+    final item =
+        MissionCatalog.itemsById[source[_random.nextInt(source.length)]]!;
 
     final scale = boardScale;
     final foodRadius = _foodRadius * scale;
     final spawnInset = (foodRadius + (24 * scale));
     final spawnX =
-        spawnInset + _random.nextDouble() * max(60 * scale, size.x - (spawnInset * 2));
+        spawnInset +
+        _random.nextDouble() * max(60 * scale, size.x - (spawnInset * 2));
     final initialVelocity = Vector2(
       (_random.nextDouble() - 0.5) * (210 * scale),
       (20 * scale) + (_random.nextDouble() * (90 * scale)),
@@ -224,7 +247,10 @@ class FoodMissionGame extends FlameGame {
       _FoodBody(
         foodItem: item,
         isTarget: isTarget,
-        position: Vector2(spawnX, -foodRadius - (_random.nextDouble() * (24 * scale))),
+        position: Vector2(
+          spawnX,
+          -foodRadius - (_random.nextDouble() * (24 * scale)),
+        ),
         velocity: initialVelocity,
         radius: foodRadius,
         angle: (_random.nextDouble() - 0.5) * 0.25,
@@ -471,11 +497,10 @@ sealed class _BoardObstacle {
 
   Paint fillPaint(Color color) => Paint()..color = color;
 
-  Paint strokePaint() =>
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5 * renderScale
-        ..color = const Color(0xCC2A211B);
+  Paint strokePaint() => Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2.5 * renderScale
+    ..color = const Color(0xCC2A211B);
 }
 
 class _CircleObstacle extends _BoardObstacle {
@@ -492,7 +517,11 @@ class _CircleObstacle extends _BoardObstacle {
 
   @override
   void render(Canvas canvas) {
-    canvas.drawCircle(center.translate(0, 6 * renderScale), radius, shadowPaint());
+    canvas.drawCircle(
+      center.translate(0, 6 * renderScale),
+      radius,
+      shadowPaint(),
+    );
     canvas.drawCircle(center, radius, fillPaint(color));
     canvas.drawCircle(center, radius, strokePaint());
   }
@@ -600,10 +629,9 @@ class _TriangleObstacle extends _BoardObstacle {
     required super.renderScale,
     required List<Offset> points,
     required this.color,
-  })
-    : assert(points.length == 3),
-      points = List.unmodifiable(points),
-      path = Path()..addPolygon(points, true);
+  }) : assert(points.length == 3),
+       points = List.unmodifiable(points),
+       path = Path()..addPolygon(points, true);
 
   final List<Offset> points;
   final Color color;
