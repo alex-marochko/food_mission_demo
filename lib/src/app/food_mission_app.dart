@@ -1,6 +1,7 @@
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:food_mission_demo/src/core/theme/app_theme.dart';
 import 'package:food_mission_demo/src/core/localization/app_locale_cubit.dart';
+import 'package:food_mission_demo/src/core/localization/app_locale_storage.dart';
 import 'package:food_mission_demo/src/core/localization/app_strings.dart';
 import 'package:food_mission_demo/src/features/food_mission/application/mission_session_cubit.dart';
 import 'package:food_mission_demo/src/features/food_mission/presentation/food_mission_screen.dart';
@@ -8,13 +9,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class FoodMissionApp extends StatelessWidget {
-  const FoodMissionApp({super.key});
+  const FoodMissionApp({
+    super.key,
+    this.initialLocale = AppLocaleOption.ukrainian,
+    this.localeStorage = const NoopAppLocaleStorage(),
+  });
+
+  final AppLocaleOption initialLocale;
+  final AppLocaleStorage localeStorage;
 
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => AppLocaleCubit()),
+        BlocProvider(
+          create: (_) => AppLocaleCubit(
+            initialLocale: initialLocale,
+            storage: localeStorage,
+          ),
+        ),
         BlocProvider(create: (_) => MissionSessionCubit()),
       ],
       child: BlocBuilder<AppLocaleCubit, AppLocaleOption>(
