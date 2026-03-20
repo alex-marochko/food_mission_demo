@@ -1,10 +1,10 @@
 import 'dart:math';
 
 import 'package:flame/game.dart';
-import 'package:food_mission_demo/src/features/food_mission/domain/food_item.dart';
-import 'package:food_mission_demo/src/features/food_mission/domain/mission_catalog.dart';
-import 'package:food_mission_demo/src/features/food_mission/domain/level_definition.dart';
 import 'package:flutter/material.dart';
+import 'package:food_mission_demo/src/features/food_mission/domain/food_item.dart';
+import 'package:food_mission_demo/src/features/food_mission/domain/level_definition.dart';
+import 'package:food_mission_demo/src/features/food_mission/domain/mission_catalog.dart';
 
 typedef CatchCallback = void Function(bool isTarget);
 typedef CountdownCallback = void Function(int secondsLeft);
@@ -169,7 +169,7 @@ class FoodMissionGame extends FlameGame {
       ..shader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFFFFF2C7), Color(0xFFFFD6BF), Color(0xFFFFF8EE)],
+        colors: [Color(0xFFFCBABA), Color(0xFFE7FFBC), Color(0xFFABFDE0)],
       ).createShader(rect);
 
     canvas.drawRRect(
