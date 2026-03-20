@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:food_mission_demo/src/core/audio/game_sfx_player.dart';
 import 'package:food_mission_demo/src/features/food_mission/application/mission_session_cubit.dart';
 import 'package:food_mission_demo/src/features/food_mission/application/mission_session_state.dart';
 import 'package:food_mission_demo/src/features/food_mission/domain/level_planner.dart';
@@ -21,6 +22,7 @@ class FoodMissionScreen extends StatefulWidget {
 class _FoodMissionScreenState extends State<FoodMissionScreen>
     with WidgetsBindingObserver {
   late FoodMissionGame _game;
+  final GameSfxPlayer _sfxPlayer = GameSfxPlayer();
   final FocusNode _gameFocusNode = FocusNode(debugLabel: 'food-mission-game');
   bool _isPaused = false;
 
@@ -29,6 +31,7 @@ class _FoodMissionScreenState extends State<FoodMissionScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _game = _createGame();
+    _sfxPlayer.preload();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _gameFocusNode.requestFocus();
@@ -65,8 +68,10 @@ class _FoodMissionScreenState extends State<FoodMissionScreen>
 
   FoodMissionGame _createGame() {
     return FoodMissionGame(
-      onCatch: (isTarget) =>
-          context.read<MissionSessionCubit>().registerCatch(isTarget: isTarget),
+      onCatch: (isTarget) {
+        _sfxPlayer.playCatch(isTarget: isTarget);
+        context.read<MissionSessionCubit>().registerCatch(isTarget: isTarget);
+      },
       onCountdown: (seconds) =>
           context.read<MissionSessionCubit>().updateRemainingSeconds(seconds),
       onFinish: () =>

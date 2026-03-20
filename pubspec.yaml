@@ -37,6 +37,7 @@ dependencies:
   flutter_bloc: ^9.1.1
   equatable: ^2.0.8
   flame: ^1.35.1
+  flame_audio: ^2.11.14
 
 dev_dependencies:
   flutter_test:
@@ -62,6 +63,9 @@ flutter:
 
   shaders:
     - shaders/reward_sweep.frag
+
+  assets:
+    - assets/audio/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
