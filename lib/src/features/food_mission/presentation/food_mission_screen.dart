@@ -644,7 +644,7 @@ class _LevelIntroPopup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final previewItems = MissionCatalog.resolveItems(
-      state.level.mission.targetItemIds.take(8).toList(growable: false),
+      state.level.mission.targetItemIds,
     );
     final theme = Theme.of(context);
 
@@ -679,6 +679,13 @@ class _LevelIntroPopup extends StatelessWidget {
             'Лови лише цільові emoji, тримай серію і закривай мету раніше за таймер.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: const Color(0xFF5B4A3E),
+            ),
+          ),
+          SizedBox(height: 14 * scale),
+          Text(
+            'Усі цільові emoji для цього рівня:',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: const Color(0xFF7E6B5C),
             ),
           ),
           SizedBox(height: 18 * scale),
