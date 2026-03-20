@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -788,7 +790,11 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
   );
   late final Animation<double> _totalBuild = CurvedAnimation(
     parent: _controller,
-    curve: const Interval(0.78, 1.0, curve: Curves.easeOutCubic),
+    curve: const Interval(0.76, 0.9, curve: Curves.easeOutCubic),
+  );
+  late final Animation<double> _totalSweep = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.89, 1.0, curve: Curves.easeInOutCubicEmphasized),
   );
 
   Offset? _scoreCardCenter;
@@ -797,6 +803,7 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
   @override
   void initState() {
     super.initState();
+    _RewardSweepProgramLoader.load();
     WidgetsBinding.instance.addPostFrameCallback((_) => _updateFlightAnchors());
   }
 
@@ -874,7 +881,7 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
                 begin: 0,
                 end: levelScore,
               ).evaluate(_scoreBuild);
-              final totalValue = _controller.value < 0.78
+              final totalValue = _controller.value < 0.76
                   ? currentTotal
                   : IntTween(
                       begin: currentTotal,
@@ -982,13 +989,19 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
                             Positioned(
                               left: totalOrigin.dx,
                               top: totalOrigin.dy,
-                              child: _AnimatedMetricCard(
+                              child: _RewardSweepCard(
                                 key: _totalCardKey,
-                                label: 'Загальний рахунок',
-                                value: '$totalValue',
                                 scale: widget.scale,
                                 width: cardWidth,
+                                progress: _totalSweep.value,
                                 accent: const Color(0xFF16C451),
+                                child: _AnimatedMetricCard(
+                                  label: 'Загальний рахунок',
+                                  value: '$totalValue',
+                                  scale: widget.scale,
+                                  width: cardWidth,
+                                  accent: const Color(0xFF16C451),
+                                ),
                               ),
                             ),
                             if (floatingOpacityValue > 0)
@@ -1223,6 +1236,16 @@ class _LevelPausePopup extends StatelessWidget {
   }
 }
 
+final class _RewardSweepProgramLoader {
+  static Future<ui.FragmentProgram>? _program;
+
+  static Future<ui.FragmentProgram> load() {
+    return _program ??= ui.FragmentProgram.fromAsset(
+      'shaders/reward_sweep.frag',
+    );
+  }
+}
+
 class _PopupMetric extends StatelessWidget {
   const _PopupMetric({
     required this.label,
@@ -1262,6 +1285,104 @@ class _PopupMetric extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _RewardSweepCard extends StatelessWidget {
+  const _RewardSweepCard({
+    super.key,
+    required this.child,
+    required this.scale,
+    required this.width,
+    required this.progress,
+    required this.accent,
+  });
+
+  final Widget child;
+  final double scale;
+  final double width;
+  final double progress;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = 18 * scale;
+
+    return SizedBox(
+      width: width,
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          child,
+          if (progress > 0.001)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(radius),
+                  child: FutureBuilder<ui.FragmentProgram>(
+                    future: _RewardSweepProgramLoader.load(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const SizedBox.shrink();
+                      }
+
+                      return CustomPaint(
+                        painter: _RewardSweepPainter(
+                          program: snapshot.data!,
+                          progress: progress,
+                          accent: accent,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RewardSweepPainter extends CustomPainter {
+  const _RewardSweepPainter({
+    required this.program,
+    required this.progress,
+    required this.accent,
+  });
+
+  final ui.FragmentProgram program;
+  final double progress;
+  final Color accent;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) {
+      return;
+    }
+
+    final shader = program.fragmentShader()
+      ..setFloat(0, size.width)
+      ..setFloat(1, size.height)
+      ..setFloat(2, progress)
+      ..setFloat(3, Curves.easeOut.transform(progress))
+      ..setFloat(4, accent.r / 255)
+      ..setFloat(5, accent.g / 255)
+      ..setFloat(6, accent.b / 255);
+
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = shader
+        ..isAntiAlias = true,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _RewardSweepPainter oldDelegate) {
+    return oldDelegate.program != program ||
+        oldDelegate.progress != progress ||
+        oldDelegate.accent != accent;
   }
 }
 
