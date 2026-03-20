@@ -53,7 +53,10 @@ void main() {
 
       expect(cubit.state.status, MissionSessionStatus.playing);
       expect(cubit.state.goalLocked, isTrue);
-      expect(cubit.state.score, greaterThanOrEqualTo(cubit.state.level.goalScore));
+      expect(
+        cubit.state.score,
+        greaterThanOrEqualTo(cubit.state.level.goalScore),
+      );
       expect(cubit.state.pendingAwardScore, 0);
     });
 
@@ -104,22 +107,25 @@ void main() {
       expect(cubit.state.remainingSeconds, 0);
     });
 
-    test('commits pending level score into total score on next level intro', () {
-      final cubit = MissionSessionCubit()..startCurrentLevel();
+    test(
+      'commits pending level score into total score on next level intro',
+      () {
+        final cubit = MissionSessionCubit()..startCurrentLevel();
 
-      while (!cubit.state.goalLocked) {
-        cubit.registerCatch(isTarget: true);
-      }
-      cubit.finishLevelFromTimer();
+        while (!cubit.state.goalLocked) {
+          cubit.registerCatch(isTarget: true);
+        }
+        cubit.finishLevelFromTimer();
 
-      final levelScore = cubit.state.score;
-      cubit.openNextLevelIntro();
+        final levelScore = cubit.state.score;
+        cubit.openNextLevelIntro();
 
-      expect(cubit.state.status, MissionSessionStatus.intro);
-      expect(cubit.state.level.number, 2);
-      expect(cubit.state.totalScore, levelScore);
-      expect(cubit.state.pendingAwardScore, 0);
-    });
+        expect(cubit.state.status, MissionSessionStatus.intro);
+        expect(cubit.state.level.number, 2);
+        expect(cubit.state.totalScore, levelScore);
+        expect(cubit.state.pendingAwardScore, 0);
+      },
+    );
 
     test('retry after win does not duplicate total score', () {
       final cubit = MissionSessionCubit()..startCurrentLevel();

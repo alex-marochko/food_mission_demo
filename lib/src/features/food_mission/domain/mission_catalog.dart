@@ -86,10 +86,6 @@ class MissionCatalog {
   static final missions = <MissionDefinition>[
     const MissionDefinition(
       id: 'vitamins',
-      title: 'Вітамінізація',
-      tagline:
-          'Фрукти, овочі, зелень і healthy-drinks. Лови вітаміни, не хаос.',
-      brief: 'Кошик для тих, хто сьогодні справді за себе взявся.',
       goalScore: 120,
       durationSeconds: 20,
       mood: MissionMood.vitamins,
@@ -131,9 +127,6 @@ class MissionCatalog {
     ),
     const MissionDefinition(
       id: 'proper_meal',
-      title: 'Поїж нормально',
-      tagline: 'Ситна їжа, сніданки й домашні страви. Без чітмільних спокус.',
-      brief: 'Тут не про салатик на два листочки, а про нормальний прийом їжі.',
       goalScore: 120,
       durationSeconds: 20,
       mood: MissionMood.properMeal,
@@ -166,9 +159,6 @@ class MissionCatalog {
     ),
     const MissionDefinition(
       id: 'goodbye_diet',
-      title: 'Бувай, дієта',
-      tagline: 'Фастфуд, десерти, снеки й рідкі калорії. Соромно? Ні.',
-      brief: 'Категорія для днів, коли план харчування пішов гуляти без тебе.',
       goalScore: 115,
       durationSeconds: 20,
       mood: MissionMood.goodbyeDiet,

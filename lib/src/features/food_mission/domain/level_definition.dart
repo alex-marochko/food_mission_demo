@@ -2,10 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:food_mission_demo/src/features/food_mission/domain/mission_definition.dart';
 
 class LevelSpawnEntry extends Equatable {
-  const LevelSpawnEntry({
-    required this.timeSeconds,
-    required this.isTarget,
-  });
+  const LevelSpawnEntry({required this.timeSeconds, required this.isTarget});
 
   final double timeSeconds;
   final bool isTarget;

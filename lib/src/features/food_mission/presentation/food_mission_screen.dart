@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:food_mission_demo/src/core/audio/game_sfx_player.dart';
+import 'package:food_mission_demo/src/core/localization/app_locale_cubit.dart';
+import 'package:food_mission_demo/src/core/localization/app_strings.dart';
 import 'package:food_mission_demo/src/features/food_mission/application/mission_session_cubit.dart';
 import 'package:food_mission_demo/src/features/food_mission/application/mission_session_state.dart';
 import 'package:food_mission_demo/src/features/food_mission/domain/level_planner.dart';
@@ -289,6 +291,11 @@ class _FoodMissionScreenState extends State<FoodMissionScreen>
                 ),
               ),
             ),
+            const Positioned(
+              top: 20,
+              left: 20,
+              child: SafeArea(child: _LanguageSwitcher()),
+            ),
             if (kDebugMode)
               Positioned(
                 top: 20,
@@ -302,28 +309,28 @@ class _FoodMissionScreenState extends State<FoodMissionScreen>
                         onPressed: () =>
                             _openPopupPreview(MissionSessionStatus.intro),
                         icon: const Icon(Icons.play_circle_outline),
-                        label: const Text('Intro Popup'),
+                        label: Text(context.strings.debugIntroPopup),
                       ),
                       const SizedBox(height: 10),
                       FilledButton.tonalIcon(
                         onPressed: () =>
                             _openPopupPreview(MissionSessionStatus.won),
                         icon: const Icon(Icons.emoji_events_outlined),
-                        label: const Text('Win Popup'),
+                        label: Text(context.strings.debugWinPopup),
                       ),
                       const SizedBox(height: 10),
                       FilledButton.tonalIcon(
                         onPressed: () =>
                             _openPopupPreview(MissionSessionStatus.lost),
                         icon: const Icon(Icons.sentiment_dissatisfied_outlined),
-                        label: const Text('Lose Popup'),
+                        label: Text(context.strings.debugLosePopup),
                       ),
                       const SizedBox(height: 10),
                       FilledButton.tonalIcon(
                         onPressed: () =>
                             _openPopupPreview(MissionSessionStatus.playing),
                         icon: const Icon(Icons.pause_circle_outline),
-                        label: const Text('Pause Popup'),
+                        label: Text(context.strings.debugPausePopup),
                       ),
                     ],
                   ),
@@ -505,6 +512,52 @@ class _GameBoard extends StatelessWidget {
   }
 }
 
+class _LanguageSwitcher extends StatelessWidget {
+  const _LanguageSwitcher();
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedLocale = context.watch<AppLocaleCubit>().state;
+    final strings = context.strings;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: SegmentedButton<AppLocaleOption>(
+          showSelectedIcon: false,
+          style: ButtonStyle(
+            visualDensity: VisualDensity.compact,
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            textStyle: const WidgetStatePropertyAll(
+              TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+          segments: [
+            ButtonSegment(
+              value: AppLocaleOption.ukrainian,
+              label: Text(strings.languageUaShort),
+            ),
+            ButtonSegment(
+              value: AppLocaleOption.english,
+              label: Text(strings.languageEnShort),
+            ),
+          ],
+          selected: {selectedLocale},
+          onSelectionChanged: (selection) {
+            context.read<AppLocaleCubit>().select(selection.first);
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class _BoardHud extends StatelessWidget {
   const _BoardHud({
     required this.scale,
@@ -518,13 +571,30 @@ class _BoardHud extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final pills = [
-      _HudPill(label: 'Рівень', value: '${state.level.number}', scale: scale),
-      _HudPill(label: 'Місія', value: state.level.mission.title, scale: scale),
-      _HudPill(label: 'Очки', value: '${state.score}', scale: scale),
-      _HudPill(label: 'Ціль', value: '${state.level.goalScore}', scale: scale),
-      _HudPill(label: 'Час', value: '${state.remainingSeconds}s', scale: scale),
-      _HudPill(label: 'Комбо', value: 'x${state.combo}', scale: scale),
+      _HudPill(
+        label: strings.hudLevel,
+        value: '${state.level.number}',
+        scale: scale,
+      ),
+      _HudPill(
+        label: strings.hudMission,
+        value: strings.missionTitle(state.level.mission.id),
+        scale: scale,
+      ),
+      _HudPill(label: strings.hudScore, value: '${state.score}', scale: scale),
+      _HudPill(
+        label: strings.hudGoal,
+        value: '${state.level.goalScore}',
+        scale: scale,
+      ),
+      _HudPill(
+        label: strings.hudTime,
+        value: strings.secondsCompact(state.remainingSeconds),
+        scale: scale,
+      ),
+      _HudPill(label: strings.hudCombo, value: 'x${state.combo}', scale: scale),
     ];
 
     return Align(
@@ -652,6 +722,7 @@ class _LevelIntroPopup extends StatelessWidget {
       state.level.mission.targetItemIds,
     );
     final theme = Theme.of(context);
+    final strings = context.strings;
 
     return _PopupShell(
       scale: scale,
@@ -660,35 +731,35 @@ class _LevelIntroPopup extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Рівень ${state.level.number}',
+            strings.levelNumber(state.level.number),
             style: theme.textTheme.labelLarge?.copyWith(
               color: const Color(0xFFE8643D),
             ),
           ),
           SizedBox(height: 8 * scale),
           Text(
-            state.level.mission.title,
+            strings.missionTitle(state.level.mission.id),
             style: theme.textTheme.headlineSmall?.copyWith(
               fontSize: (theme.textTheme.headlineSmall?.fontSize ?? 28) * scale,
             ),
           ),
           SizedBox(height: 10 * scale),
           Text(
-            state.level.mission.tagline,
+            strings.missionTagline(state.level.mission.id),
             style: theme.textTheme.bodyLarge?.copyWith(
               color: const Color(0xFF5B4A3E),
             ),
           ),
           SizedBox(height: 16 * scale),
           Text(
-            'Лови лише цільові emoji, тримай серію і закривай мету раніше за таймер.',
+            strings.introInstructions,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: const Color(0xFF5B4A3E),
             ),
           ),
           SizedBox(height: 14 * scale),
           Text(
-            'Усі цільові emoji для цього рівня:',
+            strings.introTargetsLabel,
             style: theme.textTheme.labelLarge?.copyWith(
               color: const Color(0xFF7E6B5C),
             ),
@@ -724,24 +795,24 @@ class _LevelIntroPopup extends StatelessWidget {
             runSpacing: 10 * scale,
             children: [
               _PopupMetric(
-                label: 'Ціль',
+                label: strings.popupGoal,
                 value: '${state.level.goalScore}',
                 scale: scale,
               ),
               _PopupMetric(
-                label: 'Час',
-                value: '${state.level.durationSeconds}s',
+                label: strings.popupTime,
+                value: strings.secondsCompact(state.level.durationSeconds),
                 scale: scale,
               ),
               _PopupMetric(
-                label: 'Spawn',
+                label: strings.popupSpawn,
                 value: '${state.level.totalSpawnCount}',
                 scale: scale,
               ),
             ],
           ),
           SizedBox(height: 22 * scale),
-          FilledButton(onPressed: onStart, child: const Text('Почати рівень')),
+          FilledButton(onPressed: onStart, child: Text(strings.startLevel)),
         ],
       ),
     );
@@ -873,9 +944,10 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final strings = context.strings;
     final nextLabel = widget.state.canAdvance
-        ? 'Наступний рівень'
-        : 'На 1 рівень';
+        ? strings.nextLevel
+        : strings.backToLevelOne;
     final levelScore = widget.state.pendingAwardScore;
     final currentTotal = widget.state.totalScore;
     final targetTotal = currentTotal + levelScore;
@@ -907,7 +979,7 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Рівень ${widget.state.level.number} пройдено!',
+                    strings.levelCompleted(widget.state.level.number),
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontSize:
                           (theme.textTheme.headlineSmall?.fontSize ?? 28) *
@@ -916,7 +988,7 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
                   ),
                   SizedBox(height: 10 * widget.scale),
                   Text(
-                    'Мета закрита. Можна або закріпити результат, або рухатися далі.',
+                    strings.winSubtitle,
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: const Color(0xFF5B4A3E),
                     ),
@@ -969,7 +1041,7 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
                               top: scoreOrigin.dy,
                               child: _AnimatedMetricCard(
                                 key: _scoreCardKey,
-                                label: 'Очки за рівень',
+                                label: strings.levelScore,
                                 value: '$sourceValue',
                                 scale: widget.scale,
                                 width: cardWidth,
@@ -980,7 +1052,7 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
                               left: comboOrigin.dx,
                               top: comboOrigin.dy,
                               child: _AnimatedMetricCard(
-                                label: 'Комбо',
+                                label: strings.hudCombo,
                                 value: 'x${widget.state.bestCombo}',
                                 scale: widget.scale,
                                 width: cardWidth,
@@ -991,7 +1063,7 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
                               left: goalOrigin.dx,
                               top: goalOrigin.dy,
                               child: _AnimatedMetricCard(
-                                label: 'Ціль',
+                                label: strings.popupGoal,
                                 value: '${widget.state.level.goalScore}',
                                 scale: widget.scale,
                                 width: cardWidth,
@@ -1008,7 +1080,7 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
                                 progress: _totalSweep.value,
                                 accent: const Color(0xFF16C451),
                                 child: _AnimatedMetricCard(
-                                  label: 'Загальний рахунок',
+                                  label: strings.totalScore,
                                   value: '$totalValue',
                                   scale: widget.scale,
                                   width: cardWidth,
@@ -1083,7 +1155,7 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
                     children: [
                       OutlinedButton(
                         onPressed: widget.onRetry,
-                        child: const Text('Пройти знову'),
+                        child: Text(strings.retryLevel),
                       ),
                       FilledButton(
                         onPressed: widget.onNext,
@@ -1115,6 +1187,7 @@ class _LevelRetryPopup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final strings = context.strings;
 
     return _PopupShell(
       scale: scale,
@@ -1125,14 +1198,14 @@ class _LevelRetryPopup extends StatelessWidget {
           Text('😕', style: TextStyle(fontSize: 44 * scale)),
           SizedBox(height: 8 * scale),
           Text(
-            'Рівень ${state.level.number} не закрито',
+            strings.levelFailed(state.level.number),
             style: theme.textTheme.headlineSmall?.copyWith(
               fontSize: (theme.textTheme.headlineSmall?.fontSize ?? 28) * scale,
             ),
           ),
           SizedBox(height: 10 * scale),
           Text(
-            'Цього разу не вистачило очок. Спробуй ще раз і втримай серію довше.',
+            strings.loseSubtitle,
             style: theme.textTheme.bodyLarge?.copyWith(
               color: const Color(0xFF5B4A3E),
             ),
@@ -1143,19 +1216,19 @@ class _LevelRetryPopup extends StatelessWidget {
             runSpacing: 10 * scale,
             children: [
               _PopupMetric(
-                label: 'Очки',
+                label: strings.hudScore,
                 value: '${state.score}',
                 scale: scale,
               ),
               _PopupMetric(
-                label: 'Ціль',
+                label: strings.popupGoal,
                 value: '${state.level.goalScore}',
                 scale: scale,
               ),
             ],
           ),
           SizedBox(height: 22 * scale),
-          FilledButton(onPressed: onRetry, child: const Text('Спробувати ще')),
+          FilledButton(onPressed: onRetry, child: Text(strings.tryAgain)),
         ],
       ),
     );
@@ -1178,6 +1251,7 @@ class _LevelPausePopup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final strings = context.strings;
 
     return _PopupShell(
       scale: scale,
@@ -1188,14 +1262,14 @@ class _LevelPausePopup extends StatelessWidget {
           Text('⏸️', style: TextStyle(fontSize: 44 * scale)),
           SizedBox(height: 8 * scale),
           Text(
-            'Пауза',
+            strings.pauseTitle,
             style: theme.textTheme.headlineSmall?.copyWith(
               fontSize: (theme.textTheme.headlineSmall?.fontSize ?? 28) * scale,
             ),
           ),
           SizedBox(height: 10 * scale),
           Text(
-            'Гру призупинено. Можна повернутися до раунду або перезапустити рівень.',
+            strings.pauseSubtitle,
             style: theme.textTheme.bodyLarge?.copyWith(
               color: const Color(0xFF5B4A3E),
             ),
@@ -1206,22 +1280,22 @@ class _LevelPausePopup extends StatelessWidget {
             runSpacing: 10 * scale,
             children: [
               _PopupMetric(
-                label: 'Очки',
+                label: strings.hudScore,
                 value: '${state.score}',
                 scale: scale,
               ),
               _PopupMetric(
-                label: 'Ціль',
+                label: strings.popupGoal,
                 value: '${state.level.goalScore}',
                 scale: scale,
               ),
               _PopupMetric(
-                label: 'Час',
-                value: '${state.remainingSeconds}s',
+                label: strings.popupTime,
+                value: strings.secondsCompact(state.remainingSeconds),
                 scale: scale,
               ),
               _PopupMetric(
-                label: 'Комбо',
+                label: strings.hudCombo,
                 value: 'x${state.combo}',
                 scale: scale,
               ),
@@ -1234,11 +1308,11 @@ class _LevelPausePopup extends StatelessWidget {
             children: [
               OutlinedButton(
                 onPressed: onRetry,
-                child: const Text('Пройти знову'),
+                child: Text(strings.retryLevel),
               ),
               FilledButton(
                 onPressed: onResume,
-                child: const Text('Продовжити'),
+                child: Text(strings.continueAction),
               ),
             ],
           ),

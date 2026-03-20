@@ -161,10 +161,7 @@ class LevelPlanner {
 }
 
 class _WeightedSample {
-  const _WeightedSample({
-    required this.timeSeconds,
-    required this.weight,
-  });
+  const _WeightedSample({required this.timeSeconds, required this.weight});
 
   final double timeSeconds;
   final double weight;
