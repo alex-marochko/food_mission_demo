@@ -52,15 +52,9 @@ class LanguageSwitcher extends StatelessWidget {
 }
 
 class BoardHud extends StatelessWidget {
-  const BoardHud({
-    super.key,
-    required this.scale,
-    required this.maxWidth,
-    required this.state,
-  });
+  const BoardHud({super.key, required this.scale, required this.state});
 
   final double scale;
-  final double maxWidth;
   final MissionSessionState state;
 
   @override

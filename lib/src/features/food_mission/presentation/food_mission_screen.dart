@@ -427,11 +427,7 @@ class _GameBoard extends StatelessWidget {
                 IgnorePointer(
                   child: Padding(
                     padding: EdgeInsets.all(overlayInset),
-                    child: BoardHud(
-                      scale: boardScale,
-                      maxWidth: constraints.maxWidth - (overlayInset * 2),
-                      state: state,
-                    ),
+                    child: BoardHud(scale: boardScale, state: state),
                   ),
                 ),
                 Positioned.fill(
