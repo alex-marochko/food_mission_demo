@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:food_mission_demo/src/core/localization/app_locale_storage.dart';
@@ -39,6 +40,6 @@ class AppLocaleCubit extends Cubit<AppLocaleOption> {
       return;
     }
     emit(locale);
-    _storage.save(locale);
+    unawaited(_storage.save(locale));
   }
 }
