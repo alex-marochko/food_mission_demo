@@ -1,11 +1,12 @@
 import 'package:flame/game.dart';
-import 'package:food_mission_demo/src/features/food_mission/application/mission_session_cubit.dart';
-import 'package:food_mission_demo/src/features/food_mission/application/mission_session_state.dart';
-import 'package:food_mission_demo/src/features/food_mission/domain/mission_catalog.dart';
-import 'package:food_mission_demo/src/features/food_mission/presentation/game/food_mission_game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:food_mission_demo/src/features/food_mission/application/mission_session_cubit.dart';
+import 'package:food_mission_demo/src/features/food_mission/application/mission_session_state.dart';
+import 'package:food_mission_demo/src/features/food_mission/domain/level_planner.dart';
+import 'package:food_mission_demo/src/features/food_mission/domain/mission_catalog.dart';
+import 'package:food_mission_demo/src/features/food_mission/presentation/game/food_mission_game.dart';
 
 class FoodMissionScreen extends StatefulWidget {
   const FoodMissionScreen({super.key});
@@ -53,7 +54,63 @@ class _FoodMissionScreenState extends State<FoodMissionScreen> {
           context.read<MissionSessionCubit>().registerCatch(isTarget: isTarget),
       onCountdown: (seconds) =>
           context.read<MissionSessionCubit>().updateRemainingSeconds(seconds),
-      onFinish: () => context.read<MissionSessionCubit>().finishLevelFromTimer(),
+      onFinish: () =>
+          context.read<MissionSessionCubit>().finishLevelFromTimer(),
+    );
+  }
+
+  Future<void> _openDebugWinPopup() async {
+    final debugState = MissionSessionState(
+      level: LevelPlanner.levelFor(17),
+      status: MissionSessionStatus.won,
+      totalScore: 1240,
+      pendingAwardScore: 188,
+      score: 188,
+      goalLocked: true,
+      combo: 0,
+      bestCombo: 8,
+      caughtTargets: 14,
+      caughtDistractors: 2,
+      remainingSeconds: 0,
+    );
+
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'debug-win-popup',
+      barrierColor: Colors.black.withValues(alpha: 0.24),
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final popupWidth = constraints.maxWidth.clamp(320.0, 460.0);
+                  final scale = popupWidth / 420;
+
+                  return ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: popupWidth),
+                    child: _LevelResultPopup(
+                      key: const ValueKey('debug-win-popup'),
+                      state: debugState,
+                      scale: scale,
+                      onRetry: Navigator.of(dialogContext).pop,
+                      onNext: Navigator.of(dialogContext).pop,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+          child: child,
+        );
+      },
     );
   }
 
@@ -70,45 +127,69 @@ class _FoodMissionScreenState extends State<FoodMissionScreen> {
         }
       },
       child: Scaffold(
-        body: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFFFFF1DB), Color(0xFFFFFAF4), Color(0xFFFFE4C9)],
-            ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Center(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final maxWidth = constraints.maxWidth;
-                    final maxHeight = constraints.maxHeight;
-                    final boardWidth = (maxHeight * FoodMissionGame.boardAspectRatio)
-                        .clamp(0.0, maxWidth);
-                    final boardHeight =
-                        boardWidth / FoodMissionGame.boardAspectRatio;
+        body: Stack(
+          children: [
+            DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFFFF1DB),
+                    Color(0xFFFFFAF4),
+                    Color(0xFFFFE4C9),
+                  ],
+                ),
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Center(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final maxWidth = constraints.maxWidth;
+                        final maxHeight = constraints.maxHeight;
+                        final boardWidth =
+                            (maxHeight * FoodMissionGame.boardAspectRatio)
+                                .clamp(0.0, maxWidth);
+                        final boardHeight =
+                            boardWidth / FoodMissionGame.boardAspectRatio;
 
-                    return SizedBox(
-                      width: boardWidth,
-                      height: boardHeight,
-                      child: BlocBuilder<MissionSessionCubit, MissionSessionState>(
-                        builder: (context, state) {
-                          return _GameBoard(
-                            game: _game,
-                            state: state,
-                            focusNode: _gameFocusNode,
-                          );
-                        },
-                      ),
-                    );
-                  },
+                        return SizedBox(
+                          width: boardWidth,
+                          height: boardHeight,
+                          child:
+                              BlocBuilder<
+                                MissionSessionCubit,
+                                MissionSessionState
+                              >(
+                                builder: (context, state) {
+                                  return _GameBoard(
+                                    game: _game,
+                                    state: state,
+                                    focusNode: _gameFocusNode,
+                                  );
+                                },
+                              ),
+                        );
+                      },
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
+            Positioned(
+              top: 20,
+              right: 20,
+              child: SafeArea(
+                child: FilledButton.icon(
+                  onPressed: _openDebugWinPopup,
+                  icon: const Icon(Icons.animation),
+                  label: const Text('Win Popup'),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -255,11 +336,7 @@ class _BoardHud extends StatelessWidget {
   Widget build(BuildContext context) {
     final pills = [
       _HudPill(label: 'Рівень', value: '${state.level.number}', scale: scale),
-      _HudPill(
-        label: 'Місія',
-        value: state.level.mission.title,
-        scale: scale,
-      ),
+      _HudPill(label: 'Місія', value: state.level.mission.title, scale: scale),
       _HudPill(label: 'Очки', value: '${state.score}', scale: scale),
       _HudPill(label: 'Ціль', value: '${state.level.goalScore}', scale: scale),
       _HudPill(label: 'Час', value: '${state.remainingSeconds}s', scale: scale),
@@ -268,11 +345,7 @@ class _BoardHud extends StatelessWidget {
 
     return Align(
       alignment: Alignment.topLeft,
-      child: Wrap(
-        spacing: 8 * scale,
-        runSpacing: 8 * scale,
-        children: pills,
-      ),
+      child: Wrap(spacing: 8 * scale, runSpacing: 8 * scale, children: pills),
     );
   }
 }
@@ -445,7 +518,10 @@ class _LevelIntroPopup extends StatelessWidget {
                         horizontal: 12 * scale,
                         vertical: 10 * scale,
                       ),
-                      child: Text(item.emoji, style: TextStyle(fontSize: 28 * scale)),
+                      child: Text(
+                        item.emoji,
+                        style: TextStyle(fontSize: 28 * scale),
+                      ),
                     ),
                   ),
                 )
@@ -474,10 +550,7 @@ class _LevelIntroPopup extends StatelessWidget {
             ],
           ),
           SizedBox(height: 22 * scale),
-          FilledButton(
-            onPressed: onStart,
-            child: const Text('Почати рівень'),
-          ),
+          FilledButton(onPressed: onStart, child: const Text('Почати рівень')),
         ],
       ),
     );
@@ -517,6 +590,17 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
     parent: _controller,
     curve: const Interval(0.32, 0.52, curve: Curves.easeOutCubic),
   );
+  late final Animation<double> _floatingOpacity =
+      TweenSequence<double>([
+        TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 0.2),
+        TweenSequenceItem(tween: ConstantTween<double>(1.0), weight: 0.6),
+        TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 0.2),
+      ]).animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: const Interval(0.46, 0.88, curve: Curves.easeInOut),
+        ),
+      );
   late final Animation<double> _flight = CurvedAnimation(
     parent: _controller,
     curve: const Interval(0.56, 0.78, curve: Curves.easeInOutCubic),
@@ -561,25 +645,15 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
                       begin: currentTotal,
                       end: targetTotal,
                     ).evaluate(_totalBuild);
-              final sourceOpacity = _controller.value < 0.74
-                  ? 1.0
-                  : (1 - CurvedAnimation(
-                          parent: _controller,
-                          curve: const Interval(0.74, 0.84, curve: Curves.easeIn),
-                        ).value)
-                      .clamp(0.0, 1.0);
-              final floatingOpacity = _controller.value < 0.56
-                  ? 0.0
-                  : _controller.value < 0.8
-                  ? 1.0
-                  : 0.0;
+
+              final floatingOpacityValue = _floatingOpacity.value;
 
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Рівень ${widget.state.level.number} пройдено',
+                    'Рівень ${widget.state.level.number} пройдено!',
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontSize:
                           (theme.textTheme.headlineSmall?.fontSize ?? 28) *
@@ -588,7 +662,7 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
                   ),
                   SizedBox(height: 10 * widget.scale),
                   Text(
-                    'Мета закрита. Очки рівня перелетять у загальний рахунок.',
+                    'Мета закрита. Можна або закріпити результат, або рухатися далі.',
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: const Color(0xFF5B4A3E),
                     ),
@@ -634,15 +708,12 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
                             Positioned(
                               left: scoreOrigin.dx,
                               top: scoreOrigin.dy,
-                              child: Opacity(
-                                opacity: sourceOpacity,
-                                child: _AnimatedMetricCard(
-                                  label: 'Очки за рівень',
-                                  value: '$sourceValue',
-                                  scale: widget.scale,
-                                  width: scoreCardWidth,
-                                  accent: const Color(0xFFE8643D),
-                                ),
+                              child: _AnimatedMetricCard(
+                                label: 'Очки за рівень',
+                                value: '$sourceValue',
+                                scale: widget.scale,
+                                width: scoreCardWidth,
+                                accent: const Color(0xFFE8643D),
                               ),
                             ),
                             Positioned(
@@ -667,20 +738,20 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
                                 accent: const Color(0xFF16C451),
                               ),
                             ),
-                            if (floatingOpacity > 0)
+                            if (floatingOpacityValue > 0)
                               Positioned(
                                 left: flightPosition.dx - (54 * widget.scale),
                                 top: flightPosition.dy - (26 * widget.scale),
                                 child: Opacity(
-                                  opacity: floatingOpacity,
+                                  opacity: floatingOpacityValue,
                                   child: Transform.scale(
                                     scale: 1.0 + (0.08 * (1 - _flight.value)),
                                     child: DecoratedBox(
                                       decoration: BoxDecoration(
                                         gradient: const LinearGradient(
                                           colors: [
-                                            Color(0xFFFFCE4A),
-                                            Color(0xFFFF8B3D),
+                                            Color(0x99FFCE4A),
+                                            Color(0x99FF8B3D),
                                           ],
                                         ),
                                         borderRadius: BorderRadius.circular(
@@ -690,14 +761,17 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
                                           BoxShadow(
                                             color: const Color(0x44E8643D),
                                             blurRadius: 18 * widget.scale,
-                                            offset: Offset(0, 10 * widget.scale),
+                                            offset: Offset(
+                                              0,
+                                              10 * widget.scale,
+                                            ),
                                           ),
                                         ],
                                       ),
                                       child: Padding(
                                         padding: EdgeInsets.symmetric(
-                                          horizontal: 14 * widget.scale,
-                                          vertical: 10 * widget.scale,
+                                          horizontal: 12 * widget.scale,
+                                          vertical: 8 * widget.scale,
                                         ),
                                         child: Text(
                                           '+$levelScore',
@@ -705,10 +779,12 @@ class _LevelResultPopupState extends State<_LevelResultPopup>
                                               ?.copyWith(
                                                 color: Colors.white,
                                                 fontSize:
-                                                    (theme.textTheme.titleMedium
-                                                                ?.fontSize ??
-                                                            18) *
-                                                        widget.scale,
+                                                    (theme
+                                                            .textTheme
+                                                            .titleMedium
+                                                            ?.fontSize ??
+                                                        16) *
+                                                    widget.scale,
                                                 fontWeight: FontWeight.w800,
                                               ),
                                         ),
@@ -786,10 +862,7 @@ class _LevelRetryPopup extends StatelessWidget {
           SizedBox(height: 18 * scale),
           _PopupMetric(label: 'Очки', value: '${state.score}', scale: scale),
           SizedBox(height: 22 * scale),
-          FilledButton(
-            onPressed: onRetry,
-            child: const Text('Спробувати ще'),
-          ),
+          FilledButton(onPressed: onRetry, child: const Text('Спробувати ще')),
         ],
       ),
     );
@@ -825,9 +898,9 @@ class _PopupMetric extends StatelessWidget {
           children: [
             Text(
               label,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: const Color(0xFF7E6B5C),
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(color: const Color(0xFF7E6B5C)),
             ),
             SizedBox(height: 4 * scale),
             Text(value, style: Theme.of(context).textTheme.titleMedium),
@@ -895,10 +968,7 @@ class _AnimatedMetricCard extends StatelessWidget {
 }
 
 class _PopupShell extends StatelessWidget {
-  const _PopupShell({
-    required this.scale,
-    required this.child,
-  });
+  const _PopupShell({required this.scale, required this.child});
 
   final double scale;
   final Widget child;
@@ -917,10 +987,7 @@ class _PopupShell extends StatelessWidget {
           ),
         ],
       ),
-      child: Padding(
-        padding: EdgeInsets.all(24 * scale),
-        child: child,
-      ),
+      child: Padding(padding: EdgeInsets.all(24 * scale), child: child),
     );
   }
 }
