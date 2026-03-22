@@ -19,7 +19,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      FLUTTER_VERSION: "3.35.7"
+      FLUTTER_VERSION: "3.41.5"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
