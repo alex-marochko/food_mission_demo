@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -31,7 +33,7 @@ class _FoodMissionScreenState extends State<FoodMissionScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _game = _createGame();
-    _sfxPlayer.preload();
+    unawaited(_sfxPlayer.preload());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _gameFocusNode.requestFocus();
@@ -68,7 +70,7 @@ class _FoodMissionScreenState extends State<FoodMissionScreen>
   FoodMissionGame _createGame() {
     return FoodMissionGame(
       onCatch: (isTarget) {
-        _sfxPlayer.playCatch(isTarget: isTarget);
+        unawaited(_sfxPlayer.playCatch(isTarget: isTarget));
         context.read<MissionSessionCubit>().registerCatch(isTarget: isTarget);
       },
       onCountdown: (seconds) =>

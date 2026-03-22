@@ -54,8 +54,45 @@ abstract class AppStrings {
   String missionTagline(String missionId);
 }
 
-class AppStringsUk extends AppStrings {
+abstract class _MappedMissionStrings extends AppStrings {
+  const _MappedMissionStrings();
+
+  Map<String, ({String title, String tagline})> get missionCopies;
+
+  @override
+  String missionTitle(String missionId) => _missionCopyFor(missionId).title;
+
+  @override
+  String missionTagline(String missionId) => _missionCopyFor(missionId).tagline;
+
+  ({String title, String tagline}) _missionCopyFor(String missionId) {
+    final copy = missionCopies[missionId];
+    if (copy == null) {
+      throw StateError('Unknown mission id: $missionId');
+    }
+    return copy;
+  }
+}
+
+class AppStringsUk extends _MappedMissionStrings {
   const AppStringsUk();
+
+  @override
+  Map<String, ({String title, String tagline})> get missionCopies => const {
+    'vitamins': (
+      title: 'Вітамінізація',
+      tagline:
+          'Фрукти, овочі, зелень і healthy-drinks. Лови вітаміни, не хаос.',
+    ),
+    'proper_meal': (
+      title: 'Поїж нормально',
+      tagline: 'Ситна їжа, сніданки й домашні страви. Без чітмільних спокус.',
+    ),
+    'goodbye_diet': (
+      title: 'Бувай, дієта',
+      tagline: 'Фастфуд, десерти, снеки й рідкі калорії. Соромно? Ні.',
+    ),
+  };
 
   @override
   String get appTitle => 'Food Mission Demo';
@@ -162,28 +199,29 @@ class AppStringsUk extends AppStrings {
 
   @override
   String secondsCompact(int seconds) => '$seconds\u0441';
-
-  @override
-  String missionTitle(String missionId) => switch (missionId) {
-    'vitamins' => 'Вітамінізація',
-    'proper_meal' => 'Поїж нормально',
-    'goodbye_diet' => 'Бувай, дієта',
-    _ => throw StateError('Unknown mission id: $missionId'),
-  };
-
-  @override
-  String missionTagline(String missionId) => switch (missionId) {
-    'vitamins' =>
-      'Фрукти, овочі, зелень і healthy-drinks. Лови вітаміни, не хаос.',
-    'proper_meal' =>
-      'Ситна їжа, сніданки й домашні страви. Без чітмільних спокус.',
-    'goodbye_diet' => 'Фастфуд, десерти, снеки й рідкі калорії. Соромно? Ні.',
-    _ => throw StateError('Unknown mission id: $missionId'),
-  };
 }
 
-class AppStringsEn extends AppStrings {
+class AppStringsEn extends _MappedMissionStrings {
   const AppStringsEn();
+
+  @override
+  Map<String, ({String title, String tagline})> get missionCopies => const {
+    'vitamins': (
+      title: 'Vitamin Boost',
+      tagline:
+          'Fruits, veggies, greens, and healthy drinks. Catch the vitamins, not the chaos.',
+    ),
+    'proper_meal': (
+      title: 'Eat Properly',
+      tagline:
+          'Hearty meals, breakfasts, and home-style dishes. No cheat-meal temptations.',
+    ),
+    'goodbye_diet': (
+      title: 'Goodbye, Diet',
+      tagline:
+          'Fast food, desserts, snacks, and liquid calories. Guilty? Not really.',
+    ),
+  };
 
   @override
   String get appTitle => 'Food Mission Demo';
@@ -290,25 +328,6 @@ class AppStringsEn extends AppStrings {
 
   @override
   String secondsCompact(int seconds) => '$seconds\u0073';
-
-  @override
-  String missionTitle(String missionId) => switch (missionId) {
-    'vitamins' => 'Vitamin Boost',
-    'proper_meal' => 'Eat Properly',
-    'goodbye_diet' => 'Goodbye, Diet',
-    _ => throw StateError('Unknown mission id: $missionId'),
-  };
-
-  @override
-  String missionTagline(String missionId) => switch (missionId) {
-    'vitamins' =>
-      'Fruits, veggies, greens, and healthy drinks. Catch the vitamins, not the chaos.',
-    'proper_meal' =>
-      'Hearty meals, breakfasts, and home-style dishes. No cheat-meal temptations.',
-    'goodbye_diet' =>
-      'Fast food, desserts, snacks, and liquid calories. Guilty? Not really.',
-    _ => throw StateError('Unknown mission id: $missionId'),
-  };
 }
 
 class _AppStringsDelegate extends LocalizationsDelegate<AppStrings> {

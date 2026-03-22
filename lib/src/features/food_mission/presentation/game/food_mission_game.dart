@@ -47,7 +47,10 @@ class FoodMissionGame extends FlameGame {
 
   final List<_FoodBody> _foods = [];
   final Map<String, TextPainter> _emojiPainters = {};
+  final Paint _ambientPaint = Paint()..color = const Color(0x22E8643D);
   Vector2 _lastBoardSize = Vector2.zero();
+  Paint? _boardBackgroundPaint;
+  List<_AmbientCircle> _ambientCircles = const [];
 
   LevelDefinition? _level;
   List<_BoardObstacle> _obstacles = const [];
@@ -82,6 +85,8 @@ class FoodMissionGame extends FlameGame {
     _rescaleScene(previousSize, size);
     _lastBoardSize = size.clone();
     _emojiPainters.clear();
+    _boardBackgroundPaint = _buildBoardBackgroundPaint(size);
+    _ambientCircles = _buildAmbientCircles(size);
     _obstacles = _buildObstacles(size);
   }
 
@@ -165,22 +170,17 @@ class FoodMissionGame extends FlameGame {
   @override
   void render(Canvas canvas) {
     final rect = Offset.zero & Size(size.x, size.y);
-    final backgroundPaint = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFFFCBABA), Color(0xFFE7FFBC), Color(0xFFABFDE0)],
-      ).createShader(rect);
+    final backgroundPaint =
+        _boardBackgroundPaint ?? _buildBoardBackgroundPaint(size);
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(rect, const Radius.circular(36)),
       backgroundPaint,
     );
 
-    final ambientPaint = Paint()..color = const Color(0x22E8643D);
-    canvas.drawCircle(Offset(size.x * 0.20, size.y * 0.19), 54, ambientPaint);
-    canvas.drawCircle(Offset(size.x * 0.82, size.y * 0.30), 72, ambientPaint);
-    canvas.drawCircle(Offset(size.x * 0.50, size.y * 0.70), 88, ambientPaint);
+    for (final circle in _ambientCircles) {
+      canvas.drawCircle(circle.center, circle.radius, _ambientPaint);
+    }
 
     for (final obstacle in _obstacles) {
       obstacle.render(canvas);
@@ -191,6 +191,33 @@ class FoodMissionGame extends FlameGame {
     }
 
     super.render(canvas);
+  }
+
+  Paint _buildBoardBackgroundPaint(Vector2 boardSize) {
+    final rect = Offset.zero & Size(boardSize.x, boardSize.y);
+    return Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFFFCBABA), Color(0xFFE7FFBC), Color(0xFFABFDE0)],
+      ).createShader(rect);
+  }
+
+  List<_AmbientCircle> _buildAmbientCircles(Vector2 boardSize) {
+    return [
+      _AmbientCircle(
+        center: Offset(boardSize.x * 0.20, boardSize.y * 0.19),
+        radius: 54,
+      ),
+      _AmbientCircle(
+        center: Offset(boardSize.x * 0.82, boardSize.y * 0.30),
+        radius: 72,
+      ),
+      _AmbientCircle(
+        center: Offset(boardSize.x * 0.50, boardSize.y * 0.70),
+        radius: 88,
+      ),
+    ];
   }
 
   Rect get catchZoneRect {
@@ -465,6 +492,13 @@ class _FoodBody {
   double radius;
   double angle;
   double angularVelocity;
+}
+
+class _AmbientCircle {
+  const _AmbientCircle({required this.center, required this.radius});
+
+  final Offset center;
+  final double radius;
 }
 
 sealed class _BoardObstacle {
