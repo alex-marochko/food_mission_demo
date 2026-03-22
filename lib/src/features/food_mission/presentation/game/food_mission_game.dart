@@ -28,6 +28,7 @@ class FoodMissionGame extends FlameGame {
   static const double _gravity = 910;
   static const double _foodRadius = 31.2;
   static const double _foodFontSize = 59.8;
+  static const double _handheldFoodScaleBoost = 1.5;
   static const double _foodRestitution = 0.88;
   static const double _obstacleRestitution = 0.84;
   static const double _wallRestitution = 0.82;
@@ -70,14 +71,40 @@ class FoodMissionGame extends FlameGame {
   static double scaleForBoardWidth(double boardWidth) =>
       boardWidth / baseBoardWidth;
 
-  double get boardScale =>
-      scaleForBoardWidth(size.x <= 0 ? baseBoardWidth : size.x);
+  double get boardScale => _effectiveBoardScale(size);
+
+  double get foodScale => _effectiveFoodScale(size);
 
   double get catcherVisualWidth => _catchVisualWidth * boardScale;
 
   double get catcherBottomPadding => _catchBottomPadding * boardScale;
 
   double get boardCornerRadius => 36 * boardScale;
+
+  static double _effectiveBoardScale(Vector2 boardSize) {
+    final safeWidth = boardSize.x <= 0 ? baseBoardWidth : boardSize.x;
+    final widthScale = safeWidth / baseBoardWidth;
+    final heightScale =
+        (boardSize.y <= 0 ? baseBoardHeight : boardSize.y) / baseBoardHeight;
+    final baseScale = min(widthScale, heightScale);
+    if (!_isHandheldPortrait(boardSize)) {
+      return baseScale;
+    }
+
+    return min(widthScale * 1.28, max(baseScale, widthScale));
+  }
+
+  static double _effectiveFoodScale(Vector2 boardSize) {
+    final scale = _effectiveBoardScale(boardSize);
+    if (!_isHandheldPortrait(boardSize)) {
+      return scale;
+    }
+
+    return scale * _handheldFoodScaleBoost;
+  }
+
+  static bool _isHandheldPortrait(Vector2 boardSize) =>
+      boardSize.x < 600 && boardSize.y > boardSize.x;
 
   @override
   void onGameResize(Vector2 size) {
@@ -261,7 +288,7 @@ class FoodMissionGame extends FlameGame {
         MissionCatalog.itemsById[source[_random.nextInt(source.length)]]!;
 
     final scale = boardScale;
-    final foodRadius = _foodRadius * scale;
+    final foodRadius = _foodRadius * foodScale;
     final spawnInset = (foodRadius + (24 * scale));
     final spawnX =
         spawnInset +
@@ -382,7 +409,7 @@ class FoodMissionGame extends FlameGame {
   }
 
   void _renderFood(Canvas canvas, _FoodBody food) {
-    final fontSize = _foodFontSize * boardScale;
+    final fontSize = _foodFontSize * foodScale;
     final painter = _emojiPainters.putIfAbsent(
       food.foodItem.emoji,
       () => TextPainter(
@@ -450,7 +477,9 @@ class FoodMissionGame extends FlameGame {
       return;
     }
 
-    final scale = min(newSize.x / previousSize.x, newSize.y / previousSize.y);
+    final scale =
+        min(newSize.x / previousSize.x, newSize.y / previousSize.y) *
+        (_effectiveFoodScale(newSize) / _effectiveFoodScale(previousSize));
     for (final food in _foods) {
       food.position = Vector2(food.position.x * scale, food.position.y * scale);
       food.velocity = Vector2(food.velocity.x * scale, food.velocity.y * scale);

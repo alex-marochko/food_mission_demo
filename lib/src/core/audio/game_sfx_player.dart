@@ -3,12 +3,29 @@ import 'package:flame_audio/flame_audio.dart';
 class GameSfxPlayer {
   static const _successAsset = 'catch_good.wav';
   static const _errorAsset = 'catch_bad.wav';
+  bool _didUnlock = false;
 
   Future<void> preload() async {
     try {
       await FlameAudio.audioCache.loadAll([_successAsset, _errorAsset]);
     } catch (_) {
       // Audio is optional in tests and unsupported environments.
+    }
+  }
+
+  Future<void> unlockOnUserGesture() async {
+    if (_didUnlock) {
+      return;
+    }
+
+    try {
+      await FlameAudio.audioCache.loadAll([_successAsset, _errorAsset]);
+      final player = await FlameAudio.play(_successAsset, volume: 0.001);
+      await player.stop();
+      await player.dispose();
+      _didUnlock = true;
+    } catch (_) {
+      // Ignore unlock failures; later user gestures may still succeed.
     }
   }
 

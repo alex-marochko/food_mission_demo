@@ -41,6 +41,20 @@ class _FoodMissionScreenState extends State<FoodMissionScreen>
     });
   }
 
+  bool _isHandheldWeb(BuildContext context) {
+    if (!kIsWeb) {
+      return false;
+    }
+
+    final platform = Theme.of(context).platform;
+    final isMobilePlatform =
+        platform == TargetPlatform.android || platform == TargetPlatform.iOS;
+    final size = MediaQuery.sizeOf(context);
+    return isMobilePlatform || size.shortestSide < 600;
+  }
+
+  Future<void> _unlockAudio() => _sfxPlayer.unlockOnUserGesture();
+
   @override
   void reassemble() {
     super.reassemble();
@@ -252,16 +266,19 @@ class _FoodMissionScreenState extends State<FoodMissionScreen>
               ),
               child: SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: EdgeInsets.all(_isHandheldWeb(context) ? 0 : 20),
                   child: Center(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        final boardWidth =
-                            (constraints.maxHeight *
-                                    FoodMissionGame.boardAspectRatio)
-                                .clamp(0.0, constraints.maxWidth);
-                        final boardHeight =
-                            boardWidth / FoodMissionGame.boardAspectRatio;
+                        final isHandheldWeb = _isHandheldWeb(context);
+                        final boardWidth = isHandheldWeb
+                            ? constraints.maxWidth
+                            : (constraints.maxHeight *
+                                      FoodMissionGame.boardAspectRatio)
+                                  .clamp(0.0, constraints.maxWidth);
+                        final boardHeight = isHandheldWeb
+                            ? constraints.maxHeight
+                            : boardWidth / FoodMissionGame.boardAspectRatio;
 
                         return SizedBox(
                           width: boardWidth,
@@ -277,6 +294,8 @@ class _FoodMissionScreenState extends State<FoodMissionScreen>
                                     state: state,
                                     focusNode: _gameFocusNode,
                                     isPaused: _isPaused,
+                                    isHandheldWeb: isHandheldWeb,
+                                    onUserInteraction: _unlockAudio,
                                     onPauseRequested: _pauseGameplay,
                                     onResumeRequested: _resumeGameplay,
                                     onRetryFromPause: _retryFromPause,
@@ -290,15 +309,15 @@ class _FoodMissionScreenState extends State<FoodMissionScreen>
                 ),
               ),
             ),
-            const Positioned(
-              top: 20,
-              left: 20,
-              child: SafeArea(child: LanguageSwitcher()),
+            Positioned(
+              top: _isHandheldWeb(context) ? 10 : 20,
+              left: _isHandheldWeb(context) ? 10 : 20,
+              child: const SafeArea(child: LanguageSwitcher()),
             ),
             if (kDebugMode)
               Positioned(
-                top: 20,
-                right: 20,
+                top: _isHandheldWeb(context) ? 10 : 20,
+                right: _isHandheldWeb(context) ? 10 : 20,
                 child: SafeArea(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -348,6 +367,8 @@ class _GameBoard extends StatelessWidget {
     required this.state,
     required this.focusNode,
     required this.isPaused,
+    required this.isHandheldWeb,
+    required this.onUserInteraction,
     required this.onPauseRequested,
     required this.onResumeRequested,
     required this.onRetryFromPause,
@@ -357,6 +378,8 @@ class _GameBoard extends StatelessWidget {
   final MissionSessionState state;
   final FocusNode focusNode;
   final bool isPaused;
+  final bool isHandheldWeb;
+  final Future<void> Function() onUserInteraction;
   final VoidCallback onPauseRequested;
   final VoidCallback onResumeRequested;
   final VoidCallback onRetryFromPause;
@@ -401,13 +424,14 @@ class _GameBoard extends StatelessWidget {
       },
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final boardScale = FoodMissionGame.scaleForBoardWidth(
-            constraints.maxWidth,
-          );
+          final boardScale = isHandheldWeb
+              ? (constraints.maxWidth / 420).clamp(0.92, 1.18)
+              : FoodMissionGame.scaleForBoardWidth(constraints.maxWidth);
           final overlayInset = (18 * boardScale).clamp(10.0, 18.0);
 
           void syncPointer(double dx) {
             focusNode.requestFocus();
+            unawaited(onUserInteraction());
             game.moveCatchZone(dx / constraints.maxWidth);
           }
 
@@ -471,9 +495,18 @@ class _GameBoard extends StatelessWidget {
                     child: BoardPopupLayer(
                       state: state,
                       scale: boardScale,
-                      onStart: cubit.startCurrentLevel,
-                      onRetry: cubit.retryLevel,
-                      onNext: cubit.openNextLevelIntro,
+                      onStart: () {
+                        unawaited(onUserInteraction());
+                        cubit.startCurrentLevel();
+                      },
+                      onRetry: () {
+                        unawaited(onUserInteraction());
+                        cubit.retryLevel();
+                      },
+                      onNext: () {
+                        unawaited(onUserInteraction());
+                        cubit.openNextLevelIntro();
+                      },
                     ),
                   ),
                 if (state.isPlaying && isPaused)
@@ -490,8 +523,14 @@ class _GameBoard extends StatelessWidget {
                             child: LevelPausePopup(
                               state: state,
                               scale: boardScale,
-                              onResume: onResumeRequested,
-                              onRetry: onRetryFromPause,
+                              onResume: () {
+                                unawaited(onUserInteraction());
+                                onResumeRequested();
+                              },
+                              onRetry: () {
+                                unawaited(onUserInteraction());
+                                onRetryFromPause();
+                              },
                             ),
                           ),
                         ),
