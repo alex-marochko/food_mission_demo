@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:food_mission_demo/src/core/localization/app_strings.dart';
+import 'package:food_mission_demo/src/core/theme/app_theme.dart';
 import 'package:food_mission_demo/src/features/food_mission/application/mission_session_state.dart';
 import 'package:food_mission_demo/src/features/food_mission/presentation/widgets/popups/popup_frame.dart';
 
@@ -26,7 +27,13 @@ class LevelRetryPopup extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('😕', style: TextStyle(fontSize: 44 * scale)),
+          Text(
+            '😕',
+            style: TextStyle(
+              fontSize: 44 * scale,
+              fontFamily: notoColorEmojiFontFamily,
+            ),
+          ),
           SizedBox(height: 8 * scale),
           Text(
             strings.levelFailed(state.level.number),

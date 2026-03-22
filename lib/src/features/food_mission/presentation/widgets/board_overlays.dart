@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:food_mission_demo/src/core/localization/app_locale_cubit.dart';
 import 'package:food_mission_demo/src/core/localization/app_strings.dart';
+import 'package:food_mission_demo/src/core/theme/app_theme.dart';
 import 'package:food_mission_demo/src/features/food_mission/application/mission_session_state.dart';
 import 'package:food_mission_demo/src/features/food_mission/presentation/game/food_mission_game.dart';
 
@@ -126,6 +127,7 @@ class CatcherOverlay extends StatelessWidget {
         style: TextStyle(
           fontSize: 116 * scale,
           color: iconColor,
+          fontFamily: notoColorEmojiFontFamily,
           shadows: [
             Shadow(
               color: shadowColor,

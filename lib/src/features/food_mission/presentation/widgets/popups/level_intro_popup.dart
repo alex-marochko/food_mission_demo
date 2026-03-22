@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:food_mission_demo/src/core/localization/app_strings.dart';
+import 'package:food_mission_demo/src/core/theme/app_theme.dart';
 import 'package:food_mission_demo/src/features/food_mission/application/mission_session_state.dart';
 import 'package:food_mission_demo/src/features/food_mission/domain/mission_catalog.dart';
 import 'package:food_mission_demo/src/features/food_mission/presentation/widgets/popups/popup_frame.dart';
@@ -82,7 +83,10 @@ class LevelIntroPopup extends StatelessWidget {
                       ),
                       child: Text(
                         item.emoji,
-                        style: TextStyle(fontSize: 28 * scale),
+                        style: TextStyle(
+                          fontSize: 28 * scale,
+                          fontFamily: notoColorEmojiFontFamily,
+                        ),
                       ),
                     ),
                   ),

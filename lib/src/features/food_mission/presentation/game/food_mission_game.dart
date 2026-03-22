@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:food_mission_demo/src/core/theme/app_theme.dart';
 import 'package:food_mission_demo/src/features/food_mission/domain/food_item.dart';
 import 'package:food_mission_demo/src/features/food_mission/domain/level_definition.dart';
 import 'package:food_mission_demo/src/features/food_mission/domain/mission_catalog.dart';
@@ -387,7 +388,10 @@ class FoodMissionGame extends FlameGame {
       () => TextPainter(
         text: TextSpan(
           text: food.foodItem.emoji,
-          style: TextStyle(fontSize: fontSize),
+          style: TextStyle(
+            fontSize: fontSize,
+            fontFamily: notoColorEmojiFontFamily,
+          ),
         ),
         textDirection: TextDirection.ltr,
       )..layout(),

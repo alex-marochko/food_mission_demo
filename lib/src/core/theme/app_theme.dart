@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 
-const emojiFontFallback = <String>[
-  'Noto Color Emoji',
-  'Apple Color Emoji',
-  'Segoe UI Emoji',
-  'Noto Emoji',
-];
+const notoColorEmojiFontFamily = 'Noto Color Emoji';
 
 ThemeData buildAppTheme() {
   const baseTextColor = Color(0xFF191613);
