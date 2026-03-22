@@ -18,11 +18,11 @@
 
 Levels rotate in this exact order:
 
-1. `Бувай, дієта`
-2. `Поїж нормально`
-3. `Вітамінізація`
+1. `Goodbye, Diet`
+2. `Eat Properly`
+3. `Vitamin Boost`
 
-Level `1` always starts with `Бувай, дієта`.
+Level `1` always starts with `Goodbye, Diet`.
 
 ## Level Duration
 
@@ -211,7 +211,7 @@ The app supports:
 
 Locale behavior:
 
-- runtime switcher in the upper-left corner
+- runtime switcher on desktop and in non-playing mobile states
 - persisted selection via `shared_preferences`
 
 ## Media Assets

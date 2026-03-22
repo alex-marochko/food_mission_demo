@@ -2,13 +2,19 @@
 
 Flame-powered Flutter demo of a gamified e-com mini-game built around short food-emoji missions.
 
+## Live Demo
+
+- [alex-marochko.github.io/food_mission_demo/](https://alex-marochko.github.io/food_mission_demo/)
+
+![Desktop gameplay](docs/images/gameplay-desktop.png)
+
 ## What Is Implemented
 
 - `90` sequential levels with deterministic planning
 - rotating missions:
-  - `Бувай, дієта`
-  - `Поїж нормально`
-  - `Вітамінізація`
+  - `Goodbye, Diet`
+  - `Eat Properly`
+  - `Vitamin Boost`
 - `Flame` game board with:
   - accelerated falling food emoji
   - wall, obstacle, and food-to-food bounces
@@ -60,7 +66,7 @@ Flame-powered Flutter demo of a gamified e-com mini-game built around short food
 
 - Level `1` starts at `20s`
 - Every next level adds `+1s`
-- Missions rotate in fixed order starting from `Бувай, дієта`
+- Missions rotate in fixed order starting from `Goodbye, Diet`
 - Spawn pacing follows repeating `20s` waves with a peak at second `13`
 - Correct catch:
   - increases combo
