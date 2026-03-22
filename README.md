@@ -1,6 +1,6 @@
 # Food Mission Demo
 
-Flame-powered Flutter demo of a gamified e-com mini-game built around short food-emoji missions.
+Flame-powered Flutter demo of an e-commerce mini-game built around short food-emoji missions.
 
 ## Live Demo
 
