@@ -28,7 +28,7 @@ class FoodMissionGame extends FlameGame {
   static const double _gravity = 910;
   static const double _foodRadius = 31.2;
   static const double _foodFontSize = 59.8;
-  static const double _handheldFoodScaleBoost = 1.5;
+  static const double _handheldFoodScaleBoost = 1.4;
   static const double _foodRestitution = 0.88;
   static const double _obstacleRestitution = 0.84;
   static const double _wallRestitution = 0.82;
@@ -456,11 +456,11 @@ class FoodMissionGame extends FlameGame {
       ),
       _TriangleObstacle(
         renderScale: scale,
-        points: [
-          Offset(boardSize.x * 0.58, boardSize.y * 0.25),
-          Offset(boardSize.x * 0.53, boardSize.y * 0.335),
-          Offset(boardSize.x * 0.63, boardSize.y * 0.335),
-        ],
+        points: _trianglePoints(
+          center: Offset(boardSize.x * 0.58, boardSize.y * 0.292),
+          width: 72 * scale,
+          height: 60 * scale,
+        ),
         color: const Color(0xFF2A9D8F),
       ),
       _CircleObstacle(
@@ -485,6 +485,18 @@ class FoodMissionGame extends FlameGame {
       food.velocity = Vector2(food.velocity.x * scale, food.velocity.y * scale);
       food.radius *= scale;
     }
+  }
+
+  List<Offset> _trianglePoints({
+    required Offset center,
+    required double width,
+    required double height,
+  }) {
+    return [
+      Offset(center.dx, center.dy - (height / 2)),
+      Offset(center.dx - (width / 2), center.dy + (height / 2)),
+      Offset(center.dx + (width / 2), center.dy + (height / 2)),
+    ];
   }
 
   void _triggerCatchFeedback(bool isTarget) {

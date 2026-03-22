@@ -231,6 +231,7 @@ class _FoodMissionScreenState extends State<FoodMissionScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isHandheldWeb = _isHandheldWeb(context);
     return BlocListener<MissionSessionCubit, MissionSessionState>(
       listenWhen: (previous, current) =>
           previous.status != current.status || previous.level != current.level,
@@ -309,15 +310,27 @@ class _FoodMissionScreenState extends State<FoodMissionScreen>
                 ),
               ),
             ),
-            Positioned(
-              top: _isHandheldWeb(context) ? 10 : 20,
-              left: _isHandheldWeb(context) ? 10 : 20,
-              child: const SafeArea(child: LanguageSwitcher()),
+            BlocBuilder<MissionSessionCubit, MissionSessionState>(
+              buildWhen: (previous, current) =>
+                  previous.status != current.status,
+              builder: (context, state) {
+                final showLanguageSwitcher = !isHandheldWeb || !state.isPlaying;
+                if (!showLanguageSwitcher) {
+                  return const SizedBox.shrink();
+                }
+
+                return Positioned(
+                  top: isHandheldWeb ? 10 : 20,
+                  left: isHandheldWeb ? null : 20,
+                  right: isHandheldWeb ? 10 : null,
+                  child: const SafeArea(child: LanguageSwitcher()),
+                );
+              },
             ),
             if (kDebugMode)
               Positioned(
-                top: _isHandheldWeb(context) ? 10 : 20,
-                right: _isHandheldWeb(context) ? 10 : 20,
+                top: isHandheldWeb ? 10 : 20,
+                right: isHandheldWeb ? 10 : 20,
                 child: SafeArea(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
