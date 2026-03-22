@@ -1,18 +1,31 @@
 # Food Mission Demo
 
-Flame-powered Flutter demo for a gamified e-com mini-game.
+Flame-powered Flutter demo of a gamified e-com mini-game built around short food-emoji missions.
 
-## Concept
+## What Is Implemented
 
-The demo is now structured as a `90`-level campaign:
-
-- missions rotate between `Бувай, дієта`, `Поїж нормально`, and `Вітамінізація`
-- level duration starts at `20s` and grows by `+1s` per level
-- spawn pacing is organized into repeating `20s` waves with a peak at second `13`
-- level start and level result are handled by popups on top of the game board
-- reaching the goal activates a goal lock, but the level still plays until the timer ends
-
-Full progression and balancing rules are documented in [docs/level_progression.md](docs/level_progression.md).
+- `90` sequential levels with deterministic planning
+- rotating missions:
+  - `Бувай, дієта`
+  - `Поїж нормально`
+  - `Вітамінізація`
+- `Flame` game board with:
+  - accelerated falling food emoji
+  - wall, obstacle, and food-to-food bounces
+  - responsive scaling that preserves board aspect ratio
+- popup-driven flow:
+  - intro popup before every level
+  - win popup with native Flutter score-transfer animation
+  - lose popup
+  - pause popup
+- localized UI with runtime language switcher:
+  - Ukrainian
+  - English
+- persisted locale selection via `shared_preferences`
+- catch SFX:
+  - correct catch
+  - wrong catch
+- bundled `Noto Color Emoji` font asset for web and explicit emoji rendering in the main emoji-heavy surfaces
 
 ## Stack
 
@@ -20,30 +33,102 @@ Full progression and balancing rules are documented in [docs/level_progression.m
 - `Flame`
 - `flutter_bloc`
 - `equatable`
+- `shared_preferences`
+- `flame_audio`
 
-## Structure
+## Project Structure
 
-- `lib/src/features/food_mission/domain` - mission definitions and emoji catalog
-- `lib/src/features/food_mission/application` - session state, level flow, scoring rules
-- `lib/src/features/food_mission/presentation/game` - Flame scene and deterministic spawn playback
-- `lib/src/features/food_mission/presentation/widgets` - board overlays and popups
+- `lib/src/core`
+  - audio
+  - localization
+  - theme
+- `lib/src/features/food_mission/domain`
+  - emoji catalog
+  - mission definitions
+  - deterministic level planner
+- `lib/src/features/food_mission/application`
+  - session state
+  - scoring
+  - level flow
+- `lib/src/features/food_mission/presentation`
+  - board orchestration screen
+  - Flame scene
+  - overlays
+  - popups
+
+## Gameplay Summary
+
+- Level `1` starts at `20s`
+- Every next level adds `+1s`
+- Missions rotate in fixed order starting from `Бувай, дієта`
+- Spawn pacing follows repeating `20s` waves with a peak at second `13`
+- Correct catch:
+  - increases combo
+  - awards combo-scaled points
+- Wrong catch:
+  - subtracts `10`
+  - resets combo
+- Goal reach activates `goal lock`
+  - the round still plays until timer end
+  - once locked, the level can no longer be lost
+
+Full rules live in [docs/level_progression.md](docs/level_progression.md).
+
+## Controls
+
+- Mouse:
+  - move the cart horizontally
+- Keyboard:
+  - `A / D`
+  - `← / →`
+- Pause:
+  - `Esc`
+  - automatic pause on app focus loss
 
 ## Run
 
 ```bash
+flutter pub get
 flutter run -d chrome
+```
+
+Desktop example:
+
+```bash
+flutter run -d macos
 ```
 
 ## Verify
 
 ```bash
+flutter analyze
 flutter test
 flutter build web
 ```
 
-## Next polish ideas
+## Assets
 
-- Add audio cues for correct / wrong catches and collision taps
-- Polish the success popup with richer Flutter animations
-- Replace fallback emoji fonts with bundled `Noto Color Emoji`
-- Add analytics events for level start, catch, streak, finish
+- Audio:
+  - `assets/audio/catch_good.wav`
+  - `assets/audio/catch_bad.wav`
+- Emoji font:
+  - `assets/fonts/NotoColorEmoji.ttf`
+- Shader:
+  - `shaders/reward_sweep.frag`
+
+## Testing Coverage
+
+- domain:
+  - mission catalog
+  - level planner
+- application:
+  - session cubit
+  - locale cubit
+- widget layer:
+  - intro popup rendering
+  - locale switch smoke flow
+
+## Notes
+
+- The demo includes debug popup preview buttons only in `kDebugMode`.
+- `Noto Color Emoji` is bundled to improve emoji consistency on web, but final rendering may still vary by browser/renderer.
