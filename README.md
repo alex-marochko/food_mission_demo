@@ -106,6 +106,24 @@ flutter test
 flutter build web
 ```
 
+## Publish
+
+Recommended path for this demo:
+
+1. Push the repository to a public GitHub repo
+2. Open repository settings
+3. In `Pages`, set source to `GitHub Actions`
+4. Push to `main`
+5. The workflow at `.github/workflows/deploy_pages.yml` will build and publish the web app
+
+For a normal project repo the final URL will be:
+
+```text
+https://<github-username>.github.io/<repo-name>/
+```
+
+If the repository name itself ends with `.github.io`, the workflow automatically switches to root-path deployment.
+
 ## Assets
 
 - Audio:
